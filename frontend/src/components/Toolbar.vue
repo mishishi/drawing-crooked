@@ -11,12 +11,19 @@
         画笔
       </button>
       <button
-        class="tool-btn"
+        class="tool-btn eraser-btn"
         :class="{ active: currentTool === 'eraser' }"
         @click="$emit('update:tool', 'eraser')"
         title="橡皮擦"
       >
-        橡皮
+        🧹 橡皮
+      </button>
+      <button
+        class="tool-btn undo-btn"
+        @click="$emit('undo')"
+        title="撤销"
+      >
+        ↩️
       </button>
     </div>
 
@@ -46,6 +53,11 @@
       >
         <span class="size-dot large"></span>
       </button>
+    </div>
+
+    <!-- Eraser Size Indicator -->
+    <div v-if="currentTool === 'eraser'" class="eraser-size-hint">
+      <span>橡皮尺寸: {{ currentSize === 3 ? '小' : currentSize === 8 ? '中' : '大' }}</span>
     </div>
 
     <!-- Color Selection -->
@@ -81,17 +93,19 @@ defineProps({
   }
 });
 
-defineEmits(['update:tool', 'update:color', 'update:size']);
+defineEmits(['update:tool', 'update:color', 'update:size', 'undo']);
 
 const colors = [
   { name: '黑色', value: '#000000' },
-  { name: '白色', value: '#ffffff' },
   { name: '红色', value: '#e74c3c' },
   { name: '橙色', value: '#e67e22' },
   { name: '黄色', value: '#f1c40f' },
   { name: '绿色', value: '#27ae60' },
   { name: '蓝色', value: '#3498db' },
-  { name: '紫色', value: '#9b59b6' }
+  { name: '紫色', value: '#9b59b6' },
+  { name: '棕色', value: '#8B4513' },
+  { name: '粉色', value: '#e91e63' },
+  { name: '灰色', value: '#607d8b' }
 ];
 </script>
 
@@ -99,13 +113,16 @@ const colors = [
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 14px 18px;
   margin-top: 10px;
-  background: #fff;
-  border-radius: 12px;
+  background: var(--bg-paper);
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-primary);
   justify-content: center;
   align-items: center;
+  transform: rotate(-1deg);
 }
 
 .tool-group {
@@ -115,58 +132,79 @@ const colors = [
 }
 
 .tool-group.colors {
-  gap: 4px;
+  gap: 5px;
 }
 
 .tool-btn {
-  padding: 8px 16px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
   background: #fff;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: bold;
+  font-family: var(--font-body);
   transition: all 0.2s ease;
-  color: #333;
+  color: var(--color-primary);
+  box-shadow: 2px 2px 0 var(--color-primary);
 }
 
 .tool-btn:hover {
-  border-color: #aaa;
-  background: #f5f5f5;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+.tool-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--color-primary);
 }
 
 .tool-btn.active {
-  border-color: #3498db;
-  background: #3498db;
+  background: var(--color-accent-purple);
   color: #fff;
+  border-color: var(--color-accent-purple);
+  box-shadow: 2px 2px 0 var(--color-accent-purple);
+}
+
+.eraser-btn.active {
+  background: #f5f5f5;
+  color: #666;
+  border-color: #999;
+  box-shadow: 2px 2px 0 #999;
 }
 
 .size-btn {
-  width: 36px;
-  height: 36px;
-  border: 2px solid #ddd;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
   background: #fff;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  box-shadow: 2px 2px 0 var(--color-primary);
 }
 
 .size-btn:hover {
-  border-color: #aaa;
-  background: #f5f5f5;
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+.size-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 var(--color-primary);
 }
 
 .size-btn.active {
-  border-color: #3498db;
-  background: #e8f4fc;
+  background: var(--color-accent-yellow);
+  border-color: var(--color-primary);
 }
 
 .size-dot {
   border-radius: 50%;
-  background: #333;
+  background: var(--color-primary);
 }
 
 .size-dot.small {
@@ -185,23 +223,34 @@ const colors = [
 }
 
 .color-btn {
-  width: 32px;
-  height: 32px;
-  border: 2px solid #ddd;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--color-primary);
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 2px 2px 0 var(--color-primary);
 }
 
 .color-btn:hover {
-  transform: scale(1.1);
-  border-color: #aaa;
+  transform: translate(-2px, -2px) scale(1.1);
+  box-shadow: 3px 3px 0 var(--color-primary);
 }
 
 .color-btn.active {
-  border-color: #3498db;
+  border-color: var(--color-accent-purple);
   border-width: 3px;
-  box-shadow: 0 0 0 2px #3498db;
+  box-shadow: 2px 2px 0 var(--color-accent-purple);
+  transform: scale(1.15);
+}
+
+.eraser-size-hint {
+  font-size: 0.75rem;
+  color: #666;
+  background: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  font-weight: bold;
 }
 </style>
