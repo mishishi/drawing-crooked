@@ -11,6 +11,13 @@
       @touchend.prevent="endDraw"
       @touchcancel.prevent="endDraw"
     ></canvas>
+    <div
+      v-if="showEraserCursor && props.isEraser"
+      class="eraser-cursor"
+      :style="{ left: touchPosition.x + 'px', top: touchPosition.y + 'px' }"
+    >
+      🧹
+    </div>
   </div>
 </template>
 
@@ -33,6 +40,8 @@ const containerRef = ref(null);
 const canvasRef = ref(null);
 const isDrawing = ref(false);
 const ctx = ref(null);
+const touchPosition = ref({ x: 0, y: 0 });
+const showEraserCursor = ref(false);
 
 // Stroke history for undo
 const MAX_HISTORY = 50;
@@ -62,12 +71,27 @@ function startDraw(e) {
   ctx.value.beginPath();
   ctx.value.moveTo(getPos(e).x, getPos(e).y);
   emit('strokeStart');
+  showEraserCursor.value = props.isEraser;
+  if (e.touches && e.touches.length > 0) {
+    const rect = canvasRef.value.getBoundingClientRect();
+    touchPosition.value = {
+      x: e.touches[0].clientX - rect.left + 20,
+      y: e.touches[0].clientY - rect.top - 20
+    };
+  }
 }
 
 function draw(e) {
   if (!isDrawing.value || !ctx.value) return;
   ctx.value.lineTo(getPos(e).x, getPos(e).y);
   ctx.value.stroke();
+  if (e.touches && e.touches.length > 0) {
+    const rect = canvasRef.value.getBoundingClientRect();
+    touchPosition.value = {
+      x: e.touches[0].clientX - rect.left + 20,
+      y: e.touches[0].clientY - rect.top - 20
+    };
+  }
 }
 
 function endDraw(e) {
@@ -82,6 +106,7 @@ function endDraw(e) {
   }
   strokeHistory.value.push(canvasRef.value.toDataURL());
   emit('strokeEnd', { imageData: canvasRef.value.toDataURL() });
+  showEraserCursor.value = false;
 }
 
 function setupCanvas() {
@@ -202,5 +227,14 @@ canvas {
   height: 100%;
   cursor: crosshair;
   display: block;
+}
+
+.eraser-cursor {
+  position: absolute;
+  font-size: 1.5rem;
+  pointer-events: none;
+  z-index: 100;
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(2px 2px 2px rgba(0,0,0,0.3));
 }
 </style>
