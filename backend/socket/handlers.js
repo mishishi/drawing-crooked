@@ -67,12 +67,13 @@ export function registerSocketHandlers(io) {
       const room = getRoom(roomId);
       if (!room) return;
 
-      // Save the drawing
-      submitDrawing(roomId, socket.id, imageData);
+      // Save the drawing - return value must be checked
+      const result = submitDrawing(roomId, socket.id, imageData);
+      if (!result) return;  // Invalid submission, don't advance
 
       // Advance to next player
-      const result = advanceToNextPlayer(roomId, io);
-      if (result && result.type === 'end-game') {
+      const advanceResult = advanceToNextPlayer(roomId, io);
+      if (advanceResult && advanceResult.type === 'end-game') {
         // Game has ended
       }
     });
