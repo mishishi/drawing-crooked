@@ -188,10 +188,12 @@ function copyRoomCode() {
 }
 
 function shareRoom() {
-  const shareUrl = `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}&room=${encodeURIComponent(JSON.stringify({ room: room.value, playerId: playerId.value }))}`;
+  const shareUrl = `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}`;
   navigator.clipboard.writeText(shareUrl).then(() => {
     linkCopied.value = true;
     setTimeout(() => { linkCopied.value = false; }, 2000);
+  }).catch(() => {
+    showToast('复制链接失败，请手动复制', 'error');
   });
 }
 
