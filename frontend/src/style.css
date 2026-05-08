@@ -1,4 +1,13 @@
-/* 全局样式（手绘风） */
+:root {
+  --bg-paper: #FFF8F0;
+  --color-primary: #2D3436;
+  --color-accent-red: #FF6B6B;
+  --color-accent-purple: #6C5CE7;
+  --color-accent-yellow: #FDCB6E;
+  --font-display: 'ZCOOL KuaiLe', cursive;
+  --font-body: 'Noto Sans SC', sans-serif;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -6,36 +15,41 @@
 }
 
 body {
-  font-family: 'Comic Sans MS', 'Microsoft YaHei', sans-serif;
-  background-color: #fdf6e3;
-  color: #333;
+  background: var(--bg-paper);
+  font-family: var(--font-body);
 }
 
 /* 手绘风通用样式 */
 .hand-drawn {
-  border: 3px solid #333;
+  border: 3px solid var(--color-primary);
   border-radius: 8px;
-  box-shadow: 4px 4px 0 #333;
+  box-shadow: 4px 4px 0 var(--color-primary);
 }
 
 .hand-drawn-btn {
   background: #fff;
-  border: 2px solid #333;
-  border-radius: 6px;
-  padding: 10px 20px;
-  font-family: inherit;
+  border: 3px solid var(--color-primary);
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--font-body);
   font-size: 16px;
   cursor: pointer;
-  box-shadow: 3px 3px 0 #333;
+  box-shadow: 4px 4px 0 var(--color-primary);
   transition: transform 0.1s, box-shadow 0.1s;
 }
 
 .hand-drawn-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0 #333;
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--color-primary);
 }
 
 .hand-drawn-btn:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0 #333;
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--color-primary);
+}
+
+.hand-drawn-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }

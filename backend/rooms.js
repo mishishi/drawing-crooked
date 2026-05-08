@@ -1,5 +1,7 @@
 // 房间状态 in-memory 存储
-import sentences from './sentences.json' assert { type: 'json' };
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const sentences = require('./sentences.json');
 
 export const rooms = new Map();
 
@@ -21,6 +23,33 @@ export function createRoom(roomId, ownerId, ownerName) {
 
 export function getRoom(roomId) {
   return rooms.get(roomId);
+}
+
+export function addPlayer(roomId, playerName, playerId) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  const player = { id: playerId, name: playerName, ready: false };
+  room.players.push(player);
+  return player;
+}
+
+export function removePlayer(roomId, playerId) {
+  const room = rooms.get(roomId);
+  if (!room) return false;
+  const index = room.players.findIndex(p => p.id === playerId);
+  if (index === -1) return false;
+  room.players.splice(index, 1);
+  if (room.owner === playerId) {
+    transferOwner(roomId);
+  }
+  return true;
+}
+
+export function transferOwner(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || room.players.length === 0) return null;
+  room.owner = room.players[0].id;
+  return room.owner;
 }
 
 export function getRandomSentence(usedIds = []) {
