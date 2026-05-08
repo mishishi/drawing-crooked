@@ -598,6 +598,12 @@ onUnmounted(() => {
   padding: 14px 20px;
   border-bottom: 1px dashed #ddd;
   animation: itemSlide 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.player-item:hover {
+  background-color: #f8f8ff;
+  transform: translateX(4px);
 }
 
 .player-item:last-child {

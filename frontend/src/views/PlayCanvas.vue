@@ -114,6 +114,17 @@
         <div class="canvas-deco deco-right"></div>
       </div>
 
+      <!-- Turn indicator overlay -->
+      <transition name="turn-flash">
+        <div v-if="showTurnIndicator" class="turn-indicator" @click="dismissCelebration">
+          <div class="turn-content">
+            <span class="turn-emoji">🎉</span>
+            <h2 class="turn-text">轮到你了！</h2>
+            <p class="turn-subtext">你的题目: {{ sentence }}</p>
+          </div>
+        </div>
+      </transition>
+
       <!-- Toolbar -->
       <div v-if="isMyTurn" class="toolbar-area">
         <Toolbar
@@ -147,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import Toolbar from '../components/Toolbar.vue';
@@ -199,6 +210,10 @@ const currentTool = ref('pen');
 const currentColor = ref('#000000');
 const currentSize = ref(8);
 
+// Turn indicator state
+const showTurnIndicator = ref(false);
+let turnIndicatorTimeout = null;
+
 // Player state
 const players = ref([]);
 let myPlayerId = '';
@@ -233,6 +248,35 @@ const playersAheadInQueue = computed(() => {
   let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
   return ahead;
 });
+
+// Watch for isMyTurn changes to show celebration
+watch(isMyTurn, (newVal) => {
+  if (newVal) {
+    // It's my turn - show celebration first
+    showTurnIndicator.value = true;
+    // Clear any existing timeout
+    if (turnIndicatorTimeout) clearTimeout(turnIndicatorTimeout);
+    // Hide after 1.5 seconds and clear canvas
+    turnIndicatorTimeout = setTimeout(() => {
+      showTurnIndicator.value = false;
+      // Clear canvas for new drawing
+      if (gameCanvasRef.value) {
+        gameCanvasRef.value.clearCanvas();
+      }
+    }, 1500);
+  }
+});
+
+// Dismiss celebration early on tap
+function dismissCelebration() {
+  if (showTurnIndicator.value) {
+    showTurnIndicator.value = false;
+    if (turnIndicatorTimeout) clearTimeout(turnIndicatorTimeout);
+    if (gameCanvasRef.value) {
+      gameCanvasRef.value.clearCanvas();
+    }
+  }
+}
 
 // Timer functions
 function startTimer() {
@@ -1045,6 +1089,68 @@ onUnmounted(() => {
 @keyframes float {
   0%, 100% { transform: translateY(0) rotate(0deg); }
   50% { transform: translateY(-10px) rotate(5deg); }
+}
+
+.turn-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.turn-content {
+  text-align: center;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.turn-emoji {
+  font-size: 5rem;
+  display: block;
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+.turn-text {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  color: var(--color-accent-purple);
+  margin: 16px 0;
+  transform: rotate(-2deg);
+  text-shadow: 3px 3px 0 var(--color-accent-yellow);
+}
+
+.turn-subtext {
+  font-size: 1.2rem;
+  color: #666;
+  margin: 0;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.05); }
+}
+
+.turn-flash-enter-active {
+  animation: flashIn 0.4s ease-out;
+}
+
+.turn-flash-leave-active {
+  animation: flashOut 0.4s ease-in;
+}
+
+@keyframes flashIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes flashOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.1); }
 }
 
 @media (max-width: 600px) {

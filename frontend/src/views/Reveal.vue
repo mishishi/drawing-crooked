@@ -36,7 +36,7 @@
         </div>
 
         <!-- Transformation chain visualization -->
-        <div class="chain-container">
+        <div class="chain-container" :class="{ 'can-scroll': canScrollChain }">
           <template v-for="(item, index) in round.drawings" :key="index">
             <!-- Player card -->
             <div class="chain-item" :class="{ 'is-mine': item.isMine }">
