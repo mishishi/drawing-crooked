@@ -34,6 +34,7 @@ const isDrawing = ref(false);
 const ctx = ref(null);
 
 // Stroke history for undo
+const MAX_HISTORY = 50;
 const strokeHistory = ref([]);
 
 function getPos(e) {
@@ -65,7 +66,6 @@ function draw(e) {
   if (!isDrawing.value || !ctx.value) return;
   ctx.value.lineTo(getPos(e).x, getPos(e).y);
   ctx.value.stroke();
-  emit('draw', { imageData: canvasRef.value.toDataURL() });
 }
 
 function endDraw(e) {
@@ -75,6 +75,9 @@ function endDraw(e) {
     ctx.value.closePath();
   }
   // Save stroke to history
+  if (strokeHistory.value.length >= MAX_HISTORY) {
+    strokeHistory.value.shift();
+  }
   strokeHistory.value.push(canvasRef.value.toDataURL());
   emit('strokeEnd', { imageData: canvasRef.value.toDataURL() });
 }
@@ -118,6 +121,11 @@ function updateStrokeStyle() {
 watch(() => props.strokeColor, updateStrokeStyle);
 watch(() => props.strokeWidth, updateStrokeStyle);
 watch(() => props.isEraser, updateStrokeStyle);
+watch(() => props.backgroundColor, () => {
+  if (canvasRef.value) {
+    clearCanvas();
+  }
+});
 
 // Public methods
 function clearCanvas() {
@@ -130,19 +138,16 @@ function clearCanvas() {
 function undo() {
   if (strokeHistory.value.length <= 1) {
     clearCanvas();
+    strokeHistory.value = [];
     return;
   }
-
-  const previousState = strokeHistory.value[strokeHistory.value.length - 2];
+  strokeHistory.value.pop();
   const img = new Image();
   img.onload = () => {
-    if (!ctx.value || !canvasRef.value) return;
-    ctx.value.fillStyle = props.backgroundColor;
-    ctx.value.fillRect(0, 0, canvasRef.value.width, canvasRef.value.height);
+    ctx.value.clearRect(0, 0, canvasRef.value.width, canvasRef.value.height);
     ctx.value.drawImage(img, 0, 0);
   };
-  img.src = previousState;
-  strokeHistory.value.pop();
+  img.src = strokeHistory.value[strokeHistory.value.length - 1];
 }
 
 function getImageData() {
@@ -170,17 +175,8 @@ defineExpose({
   setImageData
 });
 
-function handleResize() {
-  // Canvas is responsive via CSS, no resize needed
-}
-
 onMounted(() => {
   setupCanvas();
-  window.addEventListener('resize', handleResize);
-});
-
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
 });
 </script>
 
