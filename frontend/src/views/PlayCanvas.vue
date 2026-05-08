@@ -70,6 +70,7 @@ const currentColor = ref('#000000');
 const currentSize = ref(8);
 
 let playerId = '';
+const playerName = route.query.name || localStorage.getItem('playerName') || '';
 
 // Computed
 const isOwner = computed(() => playerId === room.value?.owner);
@@ -108,13 +109,19 @@ function handleYourSentence({ sentence: s }) {
   sentence.value = s;
 }
 
-function handleYourTurn({ round, previousDrawing: prevDrawing }) {
+function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName: name }) {
   isMyTurn.value = true;
   currentRound.value = round;
+  currentPlayerName.value = name || '';
   previousDrawing.value = prevDrawing || null;
 
-  // Clear canvas for new drawing
-  gameCanvasRef.value?.clearCanvas();
+  // Draw previous drawing to canvas if available
+  if (prevDrawing) {
+    gameCanvasRef.value?.setImageData(prevDrawing);
+  } else {
+    // Clear canvas for new drawing
+    gameCanvasRef.value?.clearCanvas();
+  }
   startTimer();
 }
 
@@ -140,11 +147,15 @@ function handleGameStarted({ roomId: rid }) {
 function handleRoomJoined({ room: r, playerId: pid }) {
   playerId = pid;
   room.value = r;
+  // Store playerName in localStorage for reconnect
+  if (playerName) {
+    localStorage.setItem('playerName', playerName);
+  }
 }
 
 onMounted(() => {
   // Reconnect to room
-  socket.emit('join-room', { roomId, playerName: '' });
+  socket.emit('join-room', { roomId, playerName });
 
   socket.on('room-joined', handleRoomJoined);
   socket.on('your-sentence', handleYourSentence);

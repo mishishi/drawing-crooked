@@ -90,7 +90,7 @@ export function startGame(roomId, io) {
 
   // Notify first player to start
   const firstPlayer = room.players[0];
-  io.to(firstPlayer.id).emit('your-turn', { round: 1 });
+  io.to(firstPlayer.id).emit('your-turn', { round: 1, currentPlayerName: firstPlayer.name });
 
   return room;
 }
@@ -98,6 +98,9 @@ export function startGame(roomId, io) {
 export function submitDrawing(roomId, playerId, imageData) {
   const room = getRoom(roomId);
   if (!room) return null;
+  if (room.players[room.currentPlayerIndex].id !== playerId) {
+    return null; // Not this player's turn
+  }
 
   // Save drawing
   room.drawings.push({
@@ -132,7 +135,8 @@ export function advanceToNextPlayer(roomId, io) {
     const nextPlayer = room.players[room.currentPlayerIndex];
     io.to(nextPlayer.id).emit('your-turn', {
       round: room.currentRound,
-      previousDrawing: getLastDrawing(room)
+      previousDrawing: getLastDrawing(room),
+      currentPlayerName: nextPlayer.name
     });
     return { type: 'next-player', room };
   }
@@ -170,7 +174,8 @@ export function startNewRound(roomId, io) {
   // Send previous round's last drawing to first player
   io.to(firstPlayer.id).emit('your-turn', {
     round: room.currentRound,
-    previousDrawing: lastDrawing
+    previousDrawing: lastDrawing,
+    currentPlayerName: firstPlayer.name
   });
 
   // Notify others they're waiting
