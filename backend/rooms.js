@@ -194,7 +194,23 @@ export function endGame(roomId, io) {
   if (!room) return null;
 
   room.status = 'ended';
-  io.to(roomId).emit('game-ended', { roomId });
+
+  // Add player names to drawings
+  const drawingsWithNames = room.drawings.map(drawing => {
+    const player = room.players.find(p => p.id === drawing.from);
+    return {
+      ...drawing,
+      playerName: player ? player.name : '未知玩家'
+    };
+  });
+
+  io.to(roomId).emit('game-ended', {
+    roomId,
+    results: {
+      drawings: drawingsWithNames,
+      sentences: room.sentences
+    }
+  });
 
   return room;
 }

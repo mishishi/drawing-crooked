@@ -26,7 +26,31 @@ export function registerSocketHandlers(io) {
       if (!player) return socket.emit('error', { message: 'Failed to join room' });
       socket.join(roomId);
       io.to(roomId).emit('player-joined', { player: { id: socket.id, name: playerName } });
-      socket.emit('room-joined', { room, playerId: socket.id });
+
+      // If room is ended, include results for reveal page
+      if (room.status === 'ended') {
+        // Add player names to drawings
+        const drawingsWithNames = room.drawings.map(drawing => {
+          const player = room.players.find(p => p.id === drawing.from);
+          return {
+            ...drawing,
+            playerName: player ? player.name : '未知玩家'
+          };
+        });
+
+        socket.emit('room-joined', {
+          room: {
+            ...room,
+            results: {
+              drawings: drawingsWithNames,
+              sentences: room.sentences
+            }
+          },
+          playerId: socket.id
+        });
+      } else {
+        socket.emit('room-joined', { room, playerId: socket.id });
+      }
     });
 
     socket.on('leave-room', ({ roomId }) => {

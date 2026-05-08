@@ -50,6 +50,7 @@ import { useRoute, useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import Toolbar from '../components/Toolbar.vue';
 import { socket } from '../socket/client.js';
+import { setGameResults } from '../store/gameStore.js';
 
 const route = useRoute();
 const router = useRouter();
@@ -134,8 +135,11 @@ function handleDrawingUpdate({ imageData }) {
   previousDrawing.value = imageData;
 }
 
-function handleGameEnded({ roomId: rid }) {
+function handleGameEnded({ roomId: rid, results }) {
   stopTimer();
+  if (results) {
+    setGameResults(results);
+  }
   router.push({ name: 'reveal', params: { roomId: rid } });
 }
 
