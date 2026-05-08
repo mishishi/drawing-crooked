@@ -1,4 +1,6 @@
 // 房间状态 in-memory 存储
+import sentences from './sentences.json' assert { type: 'json' };
+
 export const rooms = new Map();
 
 export function createRoom(roomId, ownerId, ownerName) {
@@ -21,6 +23,8 @@ export function getRoom(roomId) {
   return rooms.get(roomId);
 }
 
-export function getRandomSentence(usedIds) {
-  // 简单随机，MVP 后期优化
+export function getRandomSentence(usedIds = []) {
+  const available = sentences.filter(s => !usedIds.includes(s.id));
+  if (available.length === 0) return null;
+  return available[Math.floor(Math.random() * available.length)];
 }

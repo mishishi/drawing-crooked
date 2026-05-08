@@ -14,7 +14,6 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { io } from '../socket/client';
 
 const router = useRouter();
 const playerName = ref('');
