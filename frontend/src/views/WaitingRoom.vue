@@ -435,7 +435,7 @@ onUnmounted(() => {
 
 .title {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: var(--text-h1);
   color: var(--color-accent-purple);
   margin: 0;
   transform: rotate(-2deg);
@@ -455,7 +455,7 @@ onUnmounted(() => {
 }
 
 .room-code-label {
-  font-size: 10px;
+  font-size: var(--text-small);
   color: #888;
   text-transform: uppercase;
 }
@@ -551,7 +551,7 @@ onUnmounted(() => {
 .card-header h2 {
   flex: 1;
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--text-body);
   color: var(--color-primary);
 }
 

@@ -6,6 +6,25 @@
   --color-accent-yellow: #FDCB6E;
   --font-display: 'ZCOOL KuaiLe', cursive;
   --font-body: 'Noto Sans SC', sans-serif;
+
+  /* Border radius scale */
+  --radius-small: 8px;
+  --radius-medium: 16px;
+  --radius-large: 24px;
+  --radius-full: 9999px;
+
+  /* Type scale */
+  --text-display: 3rem;
+  --text-h1: 2rem;
+  --text-h2: 1.5rem;
+  --text-body: 1rem;
+  --text-caption: 0.875rem;
+  --text-small: 0.75rem;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 * {
@@ -22,14 +41,14 @@ body {
 /* 手绘风通用样式 */
 .hand-drawn {
   border: 3px solid var(--color-primary);
-  border-radius: 8px;
+  border-radius: var(--radius-small);
   box-shadow: 4px 4px 0 var(--color-primary);
 }
 
 .hand-drawn-btn {
   background: #fff;
   border: 3px solid var(--color-primary);
-  border-radius: 8px;
+  border-radius: var(--radius-small);
   padding: 12px 24px;
   font-family: var(--font-body);
   font-size: 16px;
@@ -44,8 +63,34 @@ body {
 }
 
 .hand-drawn-btn:active {
-  transform: translate(2px, 2px);
+  transform: scale(0.97) translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--color-primary);
+}
+
+/* Focus visible styles */
+:focus-visible {
+  outline: 3px solid var(--color-accent-purple);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--color-accent-purple);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .hand-drawn-btn:disabled {

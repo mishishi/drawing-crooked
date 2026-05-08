@@ -6,31 +6,35 @@
         class="tool-btn"
         :class="{ active: currentTool === 'pen' }"
         @click="$emit('update:tool', 'pen')"
-        title="画笔"
-        :aria-pressed="currentTool === 'pen'"
+        :title="isMobile ? '画笔' : undefined"
+        :aria-label="isMobile ? '画笔' : undefined"
       >
-        画笔<span v-if="currentTool === 'pen'" class="active-indicator"> ✓</span>
+        <span v-if="!isMobile">画笔<span v-if="currentTool === 'pen'" class="active-indicator"> ✓</span></span>
+        <span v-else class="icon-only">✏️</span>
       </button>
       <button
         class="tool-btn eraser-btn"
         :class="{ active: currentTool === 'eraser' }"
         @click="$emit('update:tool', 'eraser')"
-        title="橡皮擦"
-        :aria-pressed="currentTool === 'eraser'"
+        :title="isMobile ? '橡皮擦' : undefined"
+        :aria-label="isMobile ? '橡皮擦' : undefined"
       >
-        🧹 橡皮<span v-if="currentTool === 'eraser'" class="active-indicator"> ✓</span>
+        <span v-if="!isMobile">🧹 橡皮<span v-if="currentTool === 'eraser'" class="active-indicator"> ✓</span></span>
+        <span v-else class="icon-only">🧹</span>
       </button>
       <button
         class="tool-btn undo-btn"
         @click="$emit('undo')"
         title="撤销"
+        :disabled="undoCount === 0"
+        :class="{ disabled: undoCount === 0 }"
       >
-        ↩️
+        <span class="icon-only">↩️</span>
       </button>
     </div>
 
-    <!-- Size Selection -->
-    <div class="tool-group">
+    <!-- Size Selection - hidden on mobile -->
+    <div v-if="!isMobile" class="tool-group">
       <button
         class="size-btn"
         :class="{ active: currentSize === 3 }"
@@ -57,27 +61,60 @@
       </button>
     </div>
 
+    <!-- Mobile compact sizes -->
+    <div v-if="isMobile" class="tool-group size-compact">
+      <button
+        v-for="size in [3, 8, 16]"
+        :key="size"
+        class="size-compact-btn"
+        :class="{ active: currentSize === size }"
+        @click="$emit('update:size', size)"
+      >
+        <span class="size-dot" :class="size === 3 ? 'small' : size === 8 ? 'medium' : 'large'"></span>
+      </button>
+    </div>
+
     <!-- Eraser Size Indicator -->
     <div v-if="currentTool === 'eraser'" class="eraser-size-hint">
       <span>橡皮尺寸: {{ currentSize === 3 ? '小' : currentSize === 8 ? '中' : '大' }}</span>
     </div>
 
     <!-- Color Selection -->
-    <div class="tool-group colors">
+    <div class="tool-group colors" :class="{ 'colors-compact': isMobile }">
       <button
-        v-for="color in colors"
+        v-for="color in (isMobile ? colors.slice(0, 6) : colors)"
         :key="color.value"
         class="color-btn"
         :class="{ active: currentColor === color.value }"
         :style="{ backgroundColor: color.value }"
         :title="color.name"
         @click="$emit('update:color', color.value)"
-      ></button>
+      >
+        <span v-if="currentColor === color.value" class="color-check">✓</span>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+
+const windowWidth = ref(window.innerWidth);
+
+function handleResize() {
+  windowWidth.value = window.innerWidth;
+}
+
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
+
+const isMobile = computed(() => windowWidth.value < 400);
+
 defineProps({
   currentTool: {
     type: String,
@@ -92,6 +129,10 @@ defineProps({
     type: Number,
     default: 8,
     validator: (v) => [3, 8, 16].includes(v)
+  },
+  undoCount: {
+    type: Number,
+    default: 0
   }
 });
 
@@ -120,7 +161,7 @@ const colors = [
   margin-top: 10px;
   background: var(--bg-paper);
   border: 3px solid var(--color-primary);
-  border-radius: 16px;
+  border-radius: var(--radius-medium);
   box-shadow: 4px 4px 0 var(--color-primary);
   justify-content: center;
   align-items: center;
@@ -144,10 +185,10 @@ const colors = [
 .tool-btn {
   padding: 8px 14px;
   border: 2px solid var(--color-primary);
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: #fff;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--text-caption);
   font-weight: bold;
   font-family: var(--font-body);
   transition: all 0.2s ease;
@@ -183,7 +224,7 @@ const colors = [
   width: 38px;
   height: 38px;
   border: 2px solid var(--color-primary);
-  border-radius: 10px;
+  border-radius: var(--radius-small);
   background: #fff;
   cursor: pointer;
   display: flex;
@@ -209,7 +250,7 @@ const colors = [
 }
 
 .size-dot {
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--color-primary);
 }
 
@@ -232,7 +273,7 @@ const colors = [
   width: 26px;
   height: 26px;
   border: 2px solid var(--color-primary);
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 2px 2px 0 var(--color-primary);
@@ -251,12 +292,75 @@ const colors = [
 }
 
 .eraser-size-hint {
-  font-size: 0.75rem;
+  font-size: var(--text-small);
   color: #666;
   background: #f0f0f0;
   padding: 4px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-small);
   border: 2px solid #ddd;
   font-weight: bold;
+}
+
+/* Mobile compact styles */
+.icon-only {
+  font-size: 1.2rem;
+}
+
+.size-compact {
+  gap: 4px;
+}
+
+.size-compact-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-small);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+.size-compact-btn.active {
+  background: var(--color-accent-yellow);
+  border-color: var(--color-primary);
+}
+
+.colors-compact {
+  gap: 4px;
+}
+
+.colors-compact .color-btn {
+  width: 24px;
+  height: 24px;
+  box-shadow: 1px 1px 0 var(--color-primary);
+}
+
+.color-check {
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+
+.tool-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 400px) {
+  .toolbar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .tool-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
 }
 </style>
