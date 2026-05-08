@@ -83,47 +83,54 @@ function startGame() {
   socket.emit('start-game', { roomId });
 }
 
+const handleRoomJoined = ({ room: r, playerId: pid }) => {
+  room.value = r;
+  playerId.value = pid;
+  ownerId.value = r.owner;
+};
+
+const handlePlayerJoined = ({ player }) => {
+  if (!room.value.players.find(p => p.id === player.id)) {
+    room.value.players.push(player);
+  }
+};
+
+const handlePlayerLeft = ({ playerId: pid }) => {
+  room.value.players = room.value.players.filter(p => p.id !== pid);
+};
+
+const handlePlayerStatusChanged = ({ playerId: pid, ready }) => {
+  const player = room.value.players.find(p => p.id === pid);
+  if (player) player.ready = ready;
+};
+
+const handleGameStarted = ({ roomId: rid }) => {
+  router.push({ name: 'play', params: { roomId: rid } });
+};
+
+const handleError = ({ message }) => {
+  alert(message);
+  router.push({ name: 'home' });
+};
+
 onMounted(() => {
   socket.emit('join-room', { roomId, playerName });
 
-  socket.on('room-joined', ({ room: r, playerId: pid }) => {
-    room.value = r;
-    playerId.value = pid;
-    ownerId.value = r.owner;
-  });
-
-  socket.on('player-joined', ({ player }) => {
-    if (!room.value.players.find(p => p.id === player.id)) {
-      room.value.players.push(player);
-    }
-  });
-
-  socket.on('player-left', ({ playerId: pid }) => {
-    room.value.players = room.value.players.filter(p => p.id !== pid);
-  });
-
-  socket.on('player-status-changed', ({ playerId: pid, ready }) => {
-    const player = room.value.players.find(p => p.id === pid);
-    if (player) player.ready = ready;
-  });
-
-  socket.on('game-started', ({ roomId: rid }) => {
-    router.push({ name: 'play', params: { roomId: rid } });
-  });
-
-  socket.on('error', ({ message }) => {
-    alert(message);
-    router.push({ name: 'home' });
-  });
+  socket.on('room-joined', handleRoomJoined);
+  socket.on('player-joined', handlePlayerJoined);
+  socket.on('player-left', handlePlayerLeft);
+  socket.on('player-status-changed', handlePlayerStatusChanged);
+  socket.on('game-started', handleGameStarted);
+  socket.on('error', handleError);
 });
 
 onUnmounted(() => {
-  socket.off('room-joined');
-  socket.off('player-joined');
-  socket.off('player-left');
-  socket.off('player-status-changed');
-  socket.off('game-started');
-  socket.off('error');
+  socket.off('room-joined', handleRoomJoined);
+  socket.off('player-joined', handlePlayerJoined);
+  socket.off('player-left', handlePlayerLeft);
+  socket.off('player-status-changed', handlePlayerStatusChanged);
+  socket.off('game-started', handleGameStarted);
+  socket.off('error', handleError);
 });
 </script>
 

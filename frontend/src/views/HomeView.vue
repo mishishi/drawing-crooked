@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { socket } from '../socket/client.js';
 
@@ -23,12 +23,20 @@ const playerName = ref('');
 const roomId = ref('');
 const error = ref('');
 
-socket.on('room-joined', ({ room, playerId }) => {
+const handleRoomJoined = ({ room }) => {
   router.push({ name: 'waiting', params: { roomId: room.roomId }, query: { name: playerName.value } });
-});
+};
 
-socket.on('error', ({ message }) => {
+const handleError = ({ message }) => {
   error.value = message;
+};
+
+socket.on('room-joined', handleRoomJoined);
+socket.on('error', handleError);
+
+onUnmounted(() => {
+  socket.off('room-joined', handleRoomJoined);
+  socket.off('error', handleError);
 });
 
 function createRoom() {

@@ -1,7 +1,11 @@
 import { rooms, createRoom, getRoom, addPlayer, removePlayer, transferOwner } from '../rooms.js';
 
 function generateRoomId() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+  let roomId;
+  do {
+    roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+  } while (rooms.has(roomId));
+  return roomId;
 }
 
 export function registerSocketHandlers(io) {
@@ -18,7 +22,8 @@ export function registerSocketHandlers(io) {
     socket.on('join-room', ({ roomId, playerName }) => {
       const room = getRoom(roomId);
       if (!room) return socket.emit('error', { message: 'Room not found' });
-      addPlayer(roomId, playerName, socket.id);
+      const player = addPlayer(roomId, playerName, socket.id);
+      if (!player) return socket.emit('error', { message: 'Failed to join room' });
       socket.join(roomId);
       io.to(roomId).emit('player-joined', { player: { id: socket.id, name: playerName } });
       socket.emit('room-joined', { room, playerId: socket.id });
