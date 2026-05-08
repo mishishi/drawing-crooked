@@ -15,7 +15,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { showToast } from '../store/toastStore.js';
 
 const props = defineProps({
   width: { type: Number, default: 800 },
@@ -36,6 +37,7 @@ const ctx = ref(null);
 // Stroke history for undo
 const MAX_HISTORY = 50;
 const strokeHistory = ref([]);
+const undoCount = computed(() => strokeHistory.value.length);
 
 function getPos(e) {
   const rect = canvasRef.value.getBoundingClientRect();
@@ -136,6 +138,10 @@ function clearCanvas() {
 }
 
 function undo() {
+  if (strokeHistory.value.length === 0) {
+    showToast('没有可撤销的操作', 'warning');
+    return;
+  }
   if (strokeHistory.value.length <= 1) {
     clearCanvas();
     strokeHistory.value = [];
