@@ -1,61 +1,188 @@
 <template>
   <div class="play-canvas">
-    <!-- Show sentence when it's player's turn -->
-    <div v-if="isMyTurn && sentence" class="sentence-display hand-drawn">
-      <span class="label">请画出:</span>
-      <span class="sentence-text">{{ sentence }}</span>
-    </div>
+    <!-- Notebook paper background lines -->
+    <div class="notebook-bg"></div>
 
-    <!-- Timer -->
-    <div v-if="isMyTurn" class="timer" :class="{ warning: timeLeft <= 10 }">
-      {{ timeLeft }}秒
-    </div>
+    <!-- Header with spiral binding decoration -->
+    <header class="game-header">
+      <div class="spiral"></div>
+      <div class="header-content">
+        <!-- Round info - pencil annotation style -->
+        <div class="round-badge">
+          <span class="round-label">回合</span>
+          <span class="round-num">{{ currentRound }}/{{ totalRounds }}</span>
+        </div>
+        <!-- Turn order indicator for non-current players -->
+        <div v-if="!isMyTurn" class="turn-order-badge">
+          <span class="turn-order-icon">📋</span>
+          <span class="turn-order-text">第 {{ myPositionInQueue }} 位</span>
+          <span class="turn-order-hint">· 还剩 {{ playersAheadInQueue }} 人</span>
+        </div>
+        <div class="player-count">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          {{ players.length }}人
+        </div>
+      </div>
+    </header>
 
-    <!-- Drawing status -->
-    <div v-if="!isMyTurn" class="waiting-status hand-drawn">
-      <p>等待 {{ currentPlayerName }} 画画...</p>
-    </div>
+    <!-- Main game area -->
+    <main class="game-main">
+      <!-- Time warning banner -->
+      <div v-if="isMyTurn && timeLeft <= 5" class="time-warning">
+        <span class="warning-icon">⏰</span>
+        <span class="warning-text">时间快到了！</span>
+      </div>
 
-    <!-- Previous drawing display -->
-    <div v-if="!isMyTurn && previousDrawing" class="previous-drawing hand-drawn">
-      <p class="label">上一幅画:</p>
-      <img :src="previousDrawing" alt="Previous drawing" />
-    </div>
+      <!-- Reconnection banner -->
+      <div v-if="connectionState !== 'connected'" class="reconnect-banner">
+        <span v-if="connectionState === 'reconnecting'">🔄 重新连接中...</span>
+        <span v-else>⚠️ 连接已断开</span>
+      </div>
 
-    <!-- Canvas (only show when it's player's turn) -->
-    <div v-if="isMyTurn" class="canvas-wrapper hand-drawn">
-      <GameCanvas
-        ref="gameCanvasRef"
-        :strokeColor="currentColor"
-        :strokeWidth="currentSize"
-        :isEraser="currentTool === 'eraser'"
-        @strokeEnd="handleStrokeEnd"
-      />
-    </div>
+      <!-- Turn indicator banner -->
+      <div v-if="!isMyTurn" class="turn-banner waiting">
+        <div class="turn-indicator"></div>
+        <span class="turn-text">{{ currentPlayerName }} 正在画...</span>
+      </div>
 
-    <!-- Toolbar (only show when it's player's turn) -->
-    <div v-if="isMyTurn" class="toolbar-wrapper">
-      <Toolbar
-        v-model:tool="currentTool"
-        v-model:color="currentColor"
-        v-model:size="currentSize"
-      />
-    </div>
+      <div v-else class="turn-banner drawing">
+        <div class="turn-indicator"></div>
+        <span class="turn-text">轮到你了！快画吧～</span>
+      </div>
+
+      <!-- Sentence card - speech bubble style -->
+      <div class="sentence-card" :class="{ myTurn: isMyTurn }">
+        <div class="speech-bubble">
+          <span class="bubble-label">
+            <template v-if="isMyTurn">
+              <span v-if="previousDrawing" class="label-seen">👀 看到句子</span>
+              <span v-else class="label-original">🎯 原句</span>
+            </template>
+            <template v-else>等待中...</template>
+          </span>
+          <span class="bubble-text">{{ sentence || '等待中...' }}</span>
+        </div>
+        <div class="bubble-tail"></div>
+      </div>
+
+      <!-- Timer - sketchy clock style -->
+      <div v-if="isMyTurn" class="timer-wrapper">
+        <svg class="timer-clock" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="45" class="clock-face"/>
+          <circle cx="50" cy="50" r="40" class="clock-inner"/>
+          <!-- Clock hands -->
+          <line x1="50" y1="50" x2="50" y2="20" class="clock-hand" :class="{ warning: timeLeft <= 10 }"/>
+          <line x1="50" y1="50" x2="50" y2="35" class="clock-hand minute-hand" :class="{ spinning: timeLeft <= 10 }"/>
+          <circle cx="50" cy="50" r="4" class="clock-center"/>
+          <!-- Tick marks -->
+          <g class="tick-marks">
+            <line v-for="i in 12" :key="i" x1="50" y1="8" x2="50" y2="14"
+              :transform="`rotate(${i * 30} 50 50)`" class="tick"/>
+          </g>
+        </svg>
+        <span class="timer-digit" :class="{ warning: timeLeft <= 10 }">{{ timeLeft }}</span>
+      </div>
+
+      <!-- Previous drawing - full size view for non-players -->
+      <div v-if="!isMyTurn && previousDrawing" class="viewing-canvas-area">
+        <div class="viewing-label">
+          <span class="viewing-icon">👀</span>
+          <span>上一幅画</span>
+        </div>
+        <div class="viewing-canvas-frame">
+          <img :src="previousDrawing" alt="Previous drawing" class="viewing-image" />
+        </div>
+      </div>
+
+      <!-- Canvas area -->
+      <div v-if="isMyTurn" class="canvas-area">
+        <div class="canvas-frame">
+          <GameCanvas
+            ref="gameCanvasRef"
+            :strokeColor="currentColor"
+            :strokeWidth="currentSize"
+            :isEraser="currentTool === 'eraser'"
+            @strokeEnd="handleStrokeEnd"
+          />
+        </div>
+        <div class="canvas-deco deco-left"></div>
+        <div class="canvas-deco deco-right"></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div v-if="isMyTurn" class="toolbar-area">
+        <Toolbar
+          v-model:tool="currentTool"
+          v-model:color="currentColor"
+          v-model:size="currentSize"
+          @undo="undoCanvas"
+        />
+        <div class="canvas-actions">
+          <button @click="clearCanvas" class="action-btn clear-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"></path>
+            </svg>
+            清空
+          </button>
+          <button @click="submitDrawing" class="action-btn submit-btn">
+            <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            画完了！
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Decorative doodles -->
+    <div class="doodle doodle-1">✏️</div>
+    <div class="doodle doodle-2">🎨</div>
+    <div class="doodle doodle-3">✨</div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import Toolbar from '../components/Toolbar.vue';
-import { socket } from '../socket/client.js';
-import { setGameResults } from '../store/gameStore.js';
+import { socket, connectionState } from '../socket/client.js';
+import { setGameResults, clearGameResults } from '../store/gameStore.js';
+import { showToast } from '../store/toastStore.js';
+
+// Audio context for timer beeps (lazy init)
+let audioContext = null;
+
+function playBeep(frequency = 800, duration = 100) {
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration / 1000);
+  } catch (e) {
+    // Silently fail if audio not supported
+  }
+}
 
 const route = useRoute();
 const router = useRouter();
 const roomId = route.params.roomId;
 
+// Core game state
 const sentence = ref('');
 const isMyTurn = ref(false);
 const currentRound = ref(1);
@@ -64,33 +191,93 @@ const currentPlayerName = ref('');
 const previousDrawing = ref(null);
 const timeLeft = ref(30);
 const timerInterval = ref(null);
+const timeWarningShown = ref(false);
 
+// Canvas state
 const gameCanvasRef = ref(null);
 const currentTool = ref('pen');
 const currentColor = ref('#000000');
 const currentSize = ref(8);
 
-let playerId = '';
+// Player state
+const players = ref([]);
+let myPlayerId = '';
 const playerName = route.query.name || localStorage.getItem('playerName') || '';
 
 // Computed
-const isOwner = computed(() => playerId === room.value?.owner);
-const room = ref({ players: [] });
+const currentPlayerPosition = computed(() => {
+  if (!currentPlayerName.value) return 1;
+  const idx = players.value.findIndex(p => p.name === currentPlayerName.value);
+  return idx === -1 ? 1 : idx + 1;
+});
+
+// User's position in the turn queue
+const myPositionInQueue = computed(() => {
+  if (!myPlayerId.value || !currentPlayerName.value) return 1;
+  const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
+  const myIdx = players.value.findIndex(p => p.id === myPlayerId.value);
+  if (currentIdx === -1 || myIdx === -1) return 1;
+
+  // Calculate how many players ahead of me (not including current)
+  let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
+  return ahead + 2; // +1 for "next is #1", +1 because we're counting from 1
+});
+
+const playersAheadInQueue = computed(() => {
+  if (!myPlayerId.value || !currentPlayerName.value) return players.value.length - 1;
+  const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
+  const myIdx = players.value.findIndex(p => p.id === myPlayerId.value);
+  if (currentIdx === -1 || myIdx === -1) return players.value.length - 1;
+
+  // Count players between current (exclusive) and me (exclusive)
+  let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
+  return ahead;
+});
 
 // Timer functions
 function startTimer() {
+  console.log('[startTimer] starting timer');
+  stopTimer();
   timeLeft.value = 30;
-  clearInterval(timerInterval.value);
+  timeWarningShown.value = false;
   timerInterval.value = setInterval(() => {
+    console.log('[timer] tick, timeLeft:', timeLeft.value);
     timeLeft.value--;
+    if (timeLeft.value === 5) {
+      playBeep(800, 150); // Higher beep at 5 seconds
+    } else if (timeLeft.value === 3) {
+      playBeep(600, 150); // Lower beep at 3 seconds
+    } else if (timeLeft.value === 1) {
+      playBeep(400, 200); // Even lower at 1 second
+    } else if (timeLeft.value === 0) {
+      playBeep(300, 500); // Final long beep at 0
+    }
+    if (timeLeft.value <= 5 && !timeWarningShown.value) {
+      // Show strong warning but don't auto-submit yet
+      timeWarningShown.value = true;
+    }
     if (timeLeft.value <= 0) {
-      submitDrawing();
+      stopTimer();
+      if (!gameCanvasRef.value) {
+        showToast('画布未就绪，自动提交失败', 'error');
+        return;
+      }
+      const imageData = gameCanvasRef.value.getImageData();
+      if (!imageData) {
+        showToast('获取画布数据失败，自动提交失败', 'error');
+        return;
+      }
+      doSubmitDrawing(imageData);
     }
   }, 1000);
 }
 
 function stopTimer() {
-  clearInterval(timerInterval.value);
+  if (timerInterval.value) {
+    console.log('[stopTimer] clearing interval');
+    clearInterval(timerInterval.value);
+    timerInterval.value = null;
+  }
 }
 
 // Handle stroke end - broadcast to others
@@ -100,9 +287,36 @@ function handleStrokeEnd({ imageData }) {
 
 // Submit drawing
 function submitDrawing() {
+  console.log('[submitDrawing] called, isMyTurn:', isMyTurn.value);
+  console.log('[submitDrawing] gameCanvasRef:', gameCanvasRef.value);
+
+  // Validate canvas is ready
+  if (!gameCanvasRef.value) {
+    showToast('画布未就绪，请稍候', 'error');
+    return;
+  }
+
+  const imageData = gameCanvasRef.value.getImageData();
+  if (!imageData) {
+    showToast('获取画布数据失败，请重试', 'error');
+    return;
+  }
+
   stopTimer();
-  const imageData = gameCanvasRef.value?.getImageData() || '';
+  doSubmitDrawing(imageData);
+}
+
+function doSubmitDrawing(imageData) {
+  console.log('[doSubmitDrawing] emitting submit-drawing, imageData length:', imageData.length, 'roomId:', roomId);
   socket.emit('submit-drawing', { roomId, imageData });
+}
+
+function clearCanvas() {
+  gameCanvasRef.value?.clearCanvas();
+}
+
+function undoCanvas() {
+  gameCanvasRef.value?.undo();
 }
 
 // Socket event handlers
@@ -110,20 +324,29 @@ function handleYourSentence({ sentence: s }) {
   sentence.value = s;
 }
 
-function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName: name }) {
-  isMyTurn.value = true;
+function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total }) {
+  console.log('[your-turn] received:', { round, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total, prevDrawing: !!prevDrawing });
   currentRound.value = round;
+  if (total) totalRounds.value = total;
   currentPlayerName.value = name || '';
+  isMyTurn.value = myTurn;
   previousDrawing.value = prevDrawing || null;
+  console.log('[your-turn] isMyTurn set to:', isMyTurn.value);
 
-  // Draw previous drawing to canvas if available
-  if (prevDrawing) {
-    gameCanvasRef.value?.setImageData(prevDrawing);
+  if (isMyTurn.value) {
+    console.log('[your-turn] it is my turn, setting up canvas');
+    if (prevDrawing) {
+      console.log('[your-turn] setting previous drawing');
+      gameCanvasRef.value?.setImageData(prevDrawing);
+    } else {
+      console.log('[your-turn] clearing canvas');
+      gameCanvasRef.value?.clearCanvas();
+    }
+    startTimer();
   } else {
-    // Clear canvas for new drawing
-    gameCanvasRef.value?.clearCanvas();
+    console.log('[your-turn] not my turn, stopping timer');
+    stopTimer();
   }
-  startTimer();
 }
 
 function handleNewRound({ round, totalRounds: total }) {
@@ -144,139 +367,702 @@ function handleGameEnded({ roomId: rid, results }) {
 }
 
 function handleGameStarted({ roomId: rid }) {
-  // Navigate to play canvas
+  clearGameResults();
   router.push({ name: 'play', params: { roomId: rid } });
 }
 
-function handleRoomJoined({ room: r, playerId: pid }) {
-  playerId = pid;
-  room.value = r;
-  // Store playerName in localStorage for reconnect
-  if (playerName) {
-    localStorage.setItem('playerName', playerName);
+function handleRoomJoined({ room: r, playerId: pid, mySentence }) {
+  console.log('[room-joined] received:', { status: r.status, hasMySentence: !!mySentence, mySentence, sentencesKeys: Object.keys(r.sentences || {}) });
+  myPlayerId = pid;
+  players.value = r.players || [];
+
+  // Set sentence immediately from room-joined event, OR from room.sentences directly
+  const sentenceFromRoom = r.sentences?.[pid];
+  if (mySentence) {
+    console.log('[room-joined] setting sentence from mySentence:', mySentence);
+    sentence.value = mySentence;
+  } else if (sentenceFromRoom) {
+    console.log('[room-joined] setting sentence from room.sentences:', sentenceFromRoom);
+    sentence.value = sentenceFromRoom;
+  } else {
+    console.log('[room-joined] no sentence available, will wait for your-sentence');
+  }
+
+  if (r.status === 'ended') {
+    router.push({ name: 'reveal', params: { roomId: r.roomId } });
+  } else if (r.status === 'playing') {
+    // Game is in progress - set initial state
+    const currentPlayer = r.players[r.currentPlayerIndex];
+    currentPlayerName.value = currentPlayer ? currentPlayer.name : '';
+    isMyTurn.value = currentPlayer && currentPlayer.id === myPlayerId;
   }
 }
 
-onMounted(() => {
-  // Reconnect to room
-  socket.emit('join-room', { roomId, playerName });
+function handleRoomUpdate({ room: r }) {
+  console.log('[room-update] received:', { status: r.status });
+  players.value = r.players || [];
 
+  if (r.status === 'playing') {
+    const currentPlayer = r.players[r.currentPlayerIndex];
+    currentPlayerName.value = currentPlayer ? currentPlayer.name : '';
+    isMyTurn.value = currentPlayer && currentPlayer.id === myPlayerId;
+  }
+}
+
+function handlePlayerJoined({ player }) {
+  if (!players.value.find(p => p.id === player.id)) {
+    players.value.push(player);
+  }
+}
+
+function handlePlayerLeft({ playerId: pid }) {
+  players.value = players.value.filter(p => p.id !== pid);
+}
+
+function handleTurnSkipped({ skippedPlayerName, newCurrentPlayerName }) {
+  showToast(`${skippedPlayerName} 掉线了，轮到 ${newCurrentPlayerName}`, 'info');
+}
+
+// Reconnect handler - saved as reference for proper cleanup
+function handleReconnect() {
+  console.log('[PlayCanvas] reconnected, rejoining room');
+  socket.emit('join-room', { roomId, playerName });
+}
+
+onMounted(() => {
+  // Register socket handlers FIRST
   socket.on('room-joined', handleRoomJoined);
+  socket.on('room-update', handleRoomUpdate);
+  socket.on('player-joined', handlePlayerJoined);
+  socket.on('player-left', handlePlayerLeft);
   socket.on('your-sentence', handleYourSentence);
   socket.on('your-turn', handleYourTurn);
   socket.on('new-round', handleNewRound);
   socket.on('drawing-update', handleDrawingUpdate);
   socket.on('game-ended', handleGameEnded);
   socket.on('game-started', handleGameStarted);
+  socket.on('turn-skipped', handleTurnSkipped);
+  socket.on('reconnect', handleReconnect);
+
+  // Debug: log socket connection state
+  console.log('[PlayCanvas onMounted] socket.connected:', socket.connected, 'socket.id:', socket.id);
+
+  // Connect if not connected and emit join-room when connected
+  if (!socket.connected) {
+    console.log('[PlayCanvas] socket not connected, waiting for connect...');
+    socket.once('connect', () => {
+      console.log('[PlayCanvas] socket connected, emitting join-room');
+      socket.emit('join-room', { roomId, playerName });
+    });
+    socket.connect();
+  } else {
+    console.log('[PlayCanvas] socket already connected, emitting join-room');
+    socket.emit('join-room', { roomId, playerName });
+  }
 });
 
 onUnmounted(() => {
   stopTimer();
   socket.off('room-joined', handleRoomJoined);
+  socket.off('room-update', handleRoomUpdate);
+  socket.off('player-joined', handlePlayerJoined);
+  socket.off('player-left', handlePlayerLeft);
   socket.off('your-sentence', handleYourSentence);
   socket.off('your-turn', handleYourTurn);
   socket.off('new-round', handleNewRound);
   socket.off('drawing-update', handleDrawingUpdate);
   socket.off('game-ended', handleGameEnded);
   socket.off('game-started', handleGameStarted);
+  socket.off('turn-skipped', handleTurnSkipped);
+  socket.off('reconnect', handleReconnect);
 });
 </script>
 
 <style scoped>
 .play-canvas {
+  position: relative;
+  min-height: 100vh;
+  padding: 20px;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      transparent,
+      transparent 39px,
+      #e8d4c4 39px,
+      #e8d4c4 40px
+    ),
+    linear-gradient(90deg, transparent 59px, #ffcccc 59px, #ffcccc 61px, transparent 61px),
+    var(--bg-paper);
+  background-attachment: local;
+}
+
+.game-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  z-index: 10;
+}
+
+.spiral {
+  width: 40px;
+  height: 60px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #666 0px,
+    #666 6px,
+    transparent 6px,
+    transparent 16px
+  );
+  border-radius: 4px;
+  margin-right: 12px;
+}
+
+.header-content {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.round-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  background: white;
+  padding: 8px 16px;
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  box-shadow: 3px 3px 0 var(--color-primary);
+  transform: rotate(-2deg);
+}
+
+.round-label {
+  font-size: 12px;
+  color: #888;
+  font-family: var(--font-body);
+}
+
+.round-num {
+  font-size: 18px;
+  font-weight: bold;
+  color: var(--color-accent-purple);
+  font-family: var(--font-display);
+}
+
+.turn-order-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-accent-yellow);
+  padding: 6px 12px;
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  box-shadow: 2px 2px 0 var(--color-primary);
+  animation: slideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.turn-order-icon {
+  font-size: 14px;
+}
+
+.turn-order-text {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+}
+
+.turn-order-hint {
+  font-size: 11px;
+  color: #666;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.player-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--color-primary);
+  transform: rotate(1deg);
+}
+
+.player-count .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.game-main {
+  position: relative;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-  gap: 16px;
+  gap: 20px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.sentence-display {
-  background: #fff;
-  padding: 16px 32px;
-  border-radius: 12px;
+.reconnect-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: var(--color-accent-yellow);
   border: 3px solid var(--color-primary);
+  border-radius: 16px;
   box-shadow: 4px 4px 0 var(--color-primary);
+  font-weight: bold;
+  font-family: var(--font-body);
+  color: var(--color-primary);
+  animation: bounce 1s infinite;
+}
+
+.time-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--color-accent-red);
+  color: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-primary);
+  font-weight: bold;
+  font-family: var(--font-body);
+  animation: shake 0.5s infinite;
+}
+
+.warning-icon {
+  font-size: 1.2rem;
+}
+
+.warning-text {
+  font-size: 0.95rem;
+}
+
+.turn-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 30px;
+  box-shadow: 4px 4px 0 var(--color-primary);
+  transform: rotate(-1deg);
+  animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.turn-banner.waiting {
+  background: var(--color-accent-yellow);
+}
+
+.turn-banner.drawing {
+  background: var(--color-accent-red);
+  color: white;
+  border-color: var(--color-primary);
+  transform: rotate(1deg);
+}
+
+.turn-indicator {
+  width: 12px;
+  height: 12px;
+  background: var(--color-primary);
+  border-radius: 50%;
+  animation: bounce 1s infinite;
+}
+
+.turn-banner.drawing .turn-indicator {
+  background: white;
+}
+
+.turn-text {
+  font-size: 16px;
+  font-weight: bold;
+  font-family: var(--font-body);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) rotate(-1deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-1deg);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.sentence-card {
+  position: relative;
+  width: 100%;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+.speech-bubble {
+  background: white;
+  padding: 24px 32px;
+  border: 3px solid var(--color-primary);
+  border-radius: 20px;
+  box-shadow: 5px 5px 0 var(--color-primary);
   text-align: center;
+  position: relative;
 }
 
-.sentence-display .label {
+.sentence-card.myTurn .speech-bubble {
+  background: linear-gradient(135deg, #fff 0%, #f0f0ff 100%);
+  border-color: var(--color-accent-purple);
+}
+
+.bubble-label {
   display: block;
-  font-size: 14px;
-  color: #666;
+  font-size: 12px;
   margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.sentence-display .sentence-text {
-  font-size: 1.5rem;
+.label-seen {
+  color: var(--color-accent-purple);
+  font-weight: bold;
+}
+
+.label-original {
+  color: var(--color-accent-red);
+  font-weight: bold;
+}
+
+.bubble-text {
+  font-size: clamp(1rem, 4vw, 1.8rem);
   font-weight: bold;
   color: var(--color-accent-purple);
+  font-family: var(--font-display);
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }
 
-.timer {
-  font-size: 2rem;
+.bubble-tail {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 15px solid transparent;
+  border-right: 15px solid transparent;
+  border-top: 20px solid var(--color-primary);
+}
+
+.bubble-tail::after {
+  content: '';
+  position: absolute;
+  top: -23px;
+  left: -13px;
+  width: 0;
+  height: 0;
+  border-left: 13px solid transparent;
+  border-right: 13px solid transparent;
+  border-top: 18px solid white;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.timer-wrapper {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.timer-clock {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(3px 3px 0 var(--color-primary));
+}
+
+.clock-face {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 3;
+}
+
+.clock-inner {
+  fill: white;
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+
+.clock-hand {
+  stroke: var(--color-primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transform-origin: 50px 50px;
+  transition: transform 0.3s ease;
+}
+
+.clock-hand.minute-hand {
+  stroke: var(--color-accent-purple);
+  stroke-width: 2;
+}
+
+.clock-center {
+  fill: var(--color-primary);
+}
+
+.tick {
+  stroke: #ccc;
+  stroke-width: 2;
+}
+
+.timer-digit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  font-weight: bold;
+  font-family: var(--font-display);
+  color: var(--color-primary);
+  transition: color 0.3s, transform 0.3s;
+}
+
+.timer-digit.warning {
+  color: var(--color-accent-red);
+  animation: shake 0.5s infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(-50%, -50%) rotate(0); }
+  25% { transform: translate(-50%, -50%) rotate(-3deg); }
+  75% { transform: translate(-50%, -50%) rotate(3deg); }
+}
+
+.viewing-canvas-area {
+  width: 100%;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.viewing-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   font-weight: bold;
   color: var(--color-primary);
-  padding: 8px 24px;
-  background: var(--color-accent-yellow);
+  background: white;
+  padding: 6px 16px;
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+.viewing-icon {
+  font-size: 16px;
+}
+
+.viewing-canvas-frame {
+  width: 100%;
+  max-width: 500px;
+  border: 4px solid var(--color-primary);
   border-radius: 8px;
-  border: 3px solid var(--color-primary);
+  box-shadow: 6px 6px 0 var(--color-primary);
+  overflow: hidden;
+  background: white;
 }
 
-.timer.warning {
-  color: var(--color-accent-red);
-  background: #ffe0e0;
-  animation: pulse 0.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-}
-
-.waiting-status {
-  background: #fff;
-  padding: 24px 48px;
-  border-radius: 12px;
-  border: 3px solid var(--color-primary);
-  box-shadow: 4px 4px 0 var(--color-primary);
-  text-align: center;
-}
-
-.previous-drawing {
-  background: #fff;
-  padding: 16px;
-  border-radius: 12px;
-  border: 3px solid var(--color-primary);
-  box-shadow: 4px 4px 0 var(--color-primary);
-}
-
-.previous-drawing .label {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 8px;
+.viewing-image {
+  width: 100%;
+  height: auto;
   display: block;
 }
 
-.previous-drawing img {
-  max-width: 400px;
-  max-height: 300px;
+.canvas-area {
+  position: relative;
+  width: 100%;
+  animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.canvas-frame {
+  width: 100%;
+  border: 4px solid var(--color-primary);
   border-radius: 8px;
-  border: 2px solid #ddd;
-}
-
-.canvas-wrapper {
-  width: 100%;
-  max-width: 800px;
-  border-radius: 12px;
+  box-shadow: 6px 6px 0 var(--color-primary);
   overflow: hidden;
-  border: 3px solid var(--color-primary);
-  box-shadow: 4px 4px 0 var(--color-primary);
+  background: white;
 }
 
-.toolbar-wrapper {
+.canvas-deco {
+  position: absolute;
+  width: 30px;
+  height: 60px;
+  background: var(--color-accent-yellow);
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+}
+
+.deco-left {
+  left: -20px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-10deg);
+}
+
+.deco-right {
+  right: -20px;
+  top: 50%;
+  transform: translateY(-50%) rotate(10deg);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.toolbar-area {
   width: 100%;
-  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: slideUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+.canvas-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  font-family: var(--font-display);
+  border: 4px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 5px 5px 0 var(--color-primary);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.action-btn:hover {
+  transform: translate(-3px, -3px);
+  box-shadow: 7px 7px 0 var(--color-primary);
+}
+
+.action-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+.submit-btn {
+  background: var(--color-accent-red);
+  color: white;
+}
+
+.clear-btn {
+  background: white;
+  color: var(--color-primary);
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+  stroke: white;
+}
+
+.doodle {
+  position: fixed;
+  font-size: 32px;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.doodle-1 {
+  top: 15%;
+  right: 8%;
+  animation: float 3s ease-in-out infinite;
+}
+
+.doodle-2 {
+  bottom: 20%;
+  left: 5%;
+  animation: float 4s ease-in-out infinite 0.5s;
+}
+
+.doodle-3 {
+  top: 60%;
+  right: 5%;
+  animation: float 3.5s ease-in-out infinite 1s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+}
+
+@media (max-width: 600px) {
+  .play-canvas {
+    padding: 12px;
+  }
+
+  .timer-wrapper {
+    width: 90px;
+    height: 90px;
+  }
+
+  .polaroid-image img {
+    max-width: 200px;
+  }
+
+  .doodle {
+    display: none;
+  }
 }
 </style>
