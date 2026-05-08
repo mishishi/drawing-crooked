@@ -69,6 +69,11 @@
             </div>
           </li>
         </transition-group>
+
+        <div v-if="players.length > 5" class="scroll-hint">
+          <span>向下滚动查看更多</span>
+          <span class="scroll-arrow">↓</span>
+        </div>
       </div>
 
       <!-- Actions -->
@@ -561,6 +566,27 @@ onUnmounted(() => {
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.player-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.player-list::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.player-list::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.player-list::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
 }
 
 .player-item {
@@ -665,6 +691,27 @@ onUnmounted(() => {
 .ready-indicator.ready .ready-text {
   color: #4caf50;
   font-weight: bold;
+}
+
+/* Scroll hint */
+.scroll-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+  font-size: 0.8rem;
+  color: #888;
+  background: linear-gradient(transparent, rgba(255,255,255,0.8));
+}
+
+.scroll-arrow {
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
 }
 
 /* Actions */
