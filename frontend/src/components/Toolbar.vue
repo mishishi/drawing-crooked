@@ -7,16 +7,18 @@
         :class="{ active: currentTool === 'pen' }"
         @click="$emit('update:tool', 'pen')"
         title="画笔"
+        :aria-pressed="currentTool === 'pen'"
       >
-        画笔
+        画笔<span v-if="currentTool === 'pen'" class="active-indicator"> ✓</span>
       </button>
       <button
         class="tool-btn eraser-btn"
         :class="{ active: currentTool === 'eraser' }"
         @click="$emit('update:tool', 'eraser')"
         title="橡皮擦"
+        :aria-pressed="currentTool === 'eraser'"
       >
-        🧹 橡皮
+        🧹 橡皮<span v-if="currentTool === 'eraser'" class="active-indicator"> ✓</span>
       </button>
       <button
         class="tool-btn undo-btn"
@@ -133,6 +135,10 @@ const colors = [
 
 .tool-group.colors {
   gap: 5px;
+}
+
+.active-indicator {
+  font-weight: bold;
 }
 
 .tool-btn {
