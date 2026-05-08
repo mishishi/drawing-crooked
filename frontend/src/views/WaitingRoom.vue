@@ -189,6 +189,8 @@ function copyRoomCode() {
   navigator.clipboard.writeText(roomId).then(() => {
     codeCopied.value = true;
     setTimeout(() => { codeCopied.value = false; }, 2000);
+  }).catch(() => {
+    showToast('复制失败，请手动复制房间号', 'error');
   });
 }
 
