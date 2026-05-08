@@ -1,4 +1,4 @@
-import { rooms, createRoom, getRoom, addPlayer, removePlayer, transferOwner } from '../rooms.js';
+import { rooms, createRoom, getRoom, addPlayer, removePlayer, transferOwner, startGame, submitDrawing, advanceToNextPlayer, endGame } from '../rooms.js';
 
 function generateRoomId() {
   let roomId;
@@ -51,11 +51,30 @@ export function registerSocketHandlers(io) {
     });
 
     socket.on('start-game', ({ roomId }) => {
-      // stub only - full implementation in Task 4
       const room = getRoom(roomId);
       if (!room || room.owner !== socket.id) return;
-      room.status = 'playing';
+      startGame(roomId, io);
       io.to(roomId).emit('game-started', { roomId });
+    });
+
+    socket.on('draw-stroke', ({ roomId, imageData }) => {
+      const room = getRoom(roomId);
+      if (!room) return;
+      socket.broadcast.to(roomId).emit('drawing-update', { imageData });
+    });
+
+    socket.on('submit-drawing', ({ roomId, imageData }) => {
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      // Save the drawing
+      submitDrawing(roomId, socket.id, imageData);
+
+      // Advance to next player
+      const result = advanceToNextPlayer(roomId, io);
+      if (result && result.type === 'end-game') {
+        // Game has ended
+      }
     });
 
     socket.on('disconnect', () => {
