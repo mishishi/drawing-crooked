@@ -105,6 +105,23 @@
         </div>
       </div>
 
+      <!-- Unprepared players warning -->
+      <div v-if="unpreparedPlayers.length > 0 && players.length >= 2" class="unprepared-card">
+        <div class="unprepared-header">
+          <span class="unprepared-icon">🎯</span>
+          <span class="unprepared-title">等待以下玩家准备</span>
+        </div>
+        <div class="unprepared-list">
+          <span
+            v-for="player in unpreparedPlayers"
+            :key="player.id"
+            class="unprepared-badge"
+          >
+            {{ player.name }}
+          </span>
+        </div>
+      </div>
+
       <!-- Actions -->
       <div class="actions-card">
         <button
@@ -194,6 +211,10 @@ const isReady = computed(() => {
 
 const allReady = computed(() => {
   return room.value.players.length >= 2 && room.value.players.every(p => p.ready);
+});
+
+const unpreparedPlayers = computed(() => {
+  return room.value.players.filter(p => !p.ready);
 });
 
 const canStart = computed(() => {
@@ -919,6 +940,53 @@ onUnmounted(() => {
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(4px); }
+}
+
+/* Unprepared players warning */
+.unprepared-card {
+  background: white;
+  border: 3px solid var(--color-accent-yellow);
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 4px 4px 0 var(--color-accent-yellow);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.unprepared-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.unprepared-icon {
+  font-size: 1.2rem;
+}
+
+.unprepared-title {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: bold;
+}
+
+.unprepared-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unprepared-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #fff3cd;
+  border: 2px solid var(--color-accent-yellow);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #856404;
+  animation: itemSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 /* Actions */

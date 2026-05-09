@@ -2,8 +2,18 @@
   <div id="app">
     <div class="connection-indicator" :class="connectionState">
       <span class="dot"></span>
-      <span v-if="connectionState === 'reconnecting'" class="text">重新连接中...</span>
+      <span v-if="connectionState === 'reconnecting'" class="text">
+        重新连接中... {{ reconnectAttempt }}/{{ MAX_RECONNECT_ATTEMPTS }}
+      </span>
       <span v-else-if="connectionState === 'disconnected'" class="text">连接已断开</span>
+      <button
+        v-if="connectionState === 'disconnected'"
+        class="refresh-btn"
+        @click="refreshPage"
+        title="刷新页面"
+      >
+        🔄
+      </button>
     </div>
     <Toast :message="toast.message" :type="toast.type" :visible="toast.visible" />
     <router-view />
@@ -13,13 +23,17 @@
 <script setup>
 import { onMounted } from 'vue';
 import Toast from './components/Toast.vue';
-import { connectionState, setToastFn } from './socket/client.js';
+import { connectionState, reconnectAttempt, MAX_RECONNECT_ATTEMPTS, setToastFn } from './socket/client.js';
 import { toast, showToast } from './store/toastStore.js';
 
 // 连接 socket 错误到 toast 系统
 onMounted(() => {
   setToastFn(showToast);
 });
+
+function refreshPage() {
+  window.location.reload();
+}
 </script>
 
 <style scoped>
@@ -66,6 +80,22 @@ onMounted(() => {
 
 .connection-indicator .text {
   white-space: nowrap;
+}
+
+.refresh-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0;
+  margin-left: 4px;
+  opacity: 0.8;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.refresh-btn:hover {
+  opacity: 1;
+  transform: rotate(180deg);
 }
 
 @keyframes bounce {

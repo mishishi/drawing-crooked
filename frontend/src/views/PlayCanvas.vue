@@ -197,6 +197,17 @@
     confirmClass="danger"
     icon="⚠️"
   />
+
+  <!-- Submit Confirm Modal -->
+  <ConfirmModal
+    ref="submitConfirmModalRef"
+    title="提交画作"
+    message="确定要提交这幅画吗？提交后无法修改。"
+    confirmText="确定提交"
+    cancelText="继续画"
+    confirmClass="primary"
+    icon="🎨"
+  />
 </template>
 
 <script setup>
@@ -252,6 +263,7 @@ const timeWarningShown = ref(false);
 const gameCanvasRef = ref(null);
 const viewingCanvasRef = ref(null);
 const confirmModalRef = ref(null);
+const submitConfirmModalRef = ref(null);
 const currentTool = ref('pen');
 const currentColor = ref('#000000');
 const currentSize = ref(8);
@@ -340,6 +352,7 @@ function startTimer() {
     }
     if (timeLeft.value <= 0) {
       stopTimer();
+      showToast('时间到！自动提交您的画作', 'info');
       if (!gameCanvasRef.value) {
         showToast('画布未就绪，自动提交失败', 'error');
         return;
@@ -367,8 +380,8 @@ function handleStrokeEnd({ imageData }) {
   socket.emit('draw-stroke', { roomId, imageData });
 }
 
-// Submit drawing
-function submitDrawing() {
+// Submit drawing with confirmation
+async function submitDrawing() {
   console.log('[submitDrawing] called, isMyTurn:', isMyTurn.value);
   console.log('[submitDrawing] gameCanvasRef:', gameCanvasRef.value);
 
@@ -382,6 +395,12 @@ function submitDrawing() {
   if (!imageData) {
     showToast('获取画布数据失败，请重试', 'error');
     return;
+  }
+
+  // Show confirmation modal
+  const confirmed = await submitConfirmModalRef.value?.show();
+  if (!confirmed) {
+    return; // User cancelled
   }
 
   stopTimer();
@@ -580,7 +599,7 @@ onMounted(() => {
 
 // Browser history warning - prevent accidental navigation during game
 function handleBeforeUnload(e) {
-  if (gamePhase.value !== 'idle' && gamePhase.value !== 'ended') {
+  if (isMyTurn.value || timeLeft.value < 30) {
     e.preventDefault();
     e.returnValue = '游戏进行中，离开将断开连接。确定要离开吗？';
     return e.returnValue;
@@ -589,36 +608,6 @@ function handleBeforeUnload(e) {
 
 onMounted(() => {
   window.addEventListener('beforeunload', handleBeforeUnload);
-
-  // Register socket handlers FIRST
-  socket.on('room-joined', handleRoomJoined);
-  socket.on('room-update', handleRoomUpdate);
-  socket.on('player-joined', handlePlayerJoined);
-  socket.on('player-left', handlePlayerLeft);
-  socket.on('your-sentence', handleYourSentence);
-  socket.on('your-turn', handleYourTurn);
-  socket.on('new-round', handleNewRound);
-  socket.on('drawing-update', handleDrawingUpdate);
-  socket.on('game-ended', handleGameEnded);
-  socket.on('game-started', handleGameStarted);
-  socket.on('turn-skipped', handleTurnSkipped);
-  socket.on('reconnect', handleReconnect);
-
-  // Debug: log socket connection state
-  console.log('[PlayCanvas onMounted] socket.connected:', socket.connected, 'socket.id:', socket.id);
-
-  // Connect if not connected and emit join-room when connected
-  if (!socket.connected) {
-    console.log('[PlayCanvas] socket not connected, waiting for connect...');
-    socket.once('connect', () => {
-      console.log('[PlayCanvas] socket connected, emitting join-room');
-      socket.emit('join-room', { roomId, playerName });
-    });
-    socket.connect();
-  } else {
-    console.log('[PlayCanvas] socket already connected, emitting join-room');
-    socket.emit('join-room', { roomId, playerName });
-  }
 });
 
 onUnmounted(() => {

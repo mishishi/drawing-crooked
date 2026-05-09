@@ -93,6 +93,7 @@
                 <span v-else-if="roomIdValidation === 'invalid_format'" class="validation-icon invalid-icon">✕</span>
                 <span v-else-if="roomId.length > 0 && roomId.length < 6" class="validation-icon hint-icon">{{ roomId.length }}/6</span>
               </div>
+              <span class="room-format-hint">房间号为6位字母或数字</span>
             </div>
 
             <button @click="joinRoom" class="action-btn join-btn" :disabled="isJoining">
@@ -190,6 +191,8 @@
                     'over-limit': customStory.length > MAX_STORY_LENGTH
                   }"
                   :maxlength="MAX_STORY_LENGTH + 5"
+                  @keyup.enter="useCustomStory"
+                  ref="customStoryInput"
                 />
                 <span
                   class="char-count"
@@ -242,8 +245,10 @@
                     v-for="story in selectedScene.stories"
                     :key="story"
                     class="story-btn"
+                    :class="{ selected: selectedStory === story }"
                     @click="selectStory(selectedScene, story)"
                   >
+                    <span v-if="selectedStory === story" class="story-check">✓</span>
                     <span class="story-text">"{{ story }}"</span>
                     <span class="story-arrow">→</span>
                   </button>
@@ -274,10 +279,20 @@ const showSceneSelect = ref(false);
 const selectedScene = ref(null);
 const selectedStory = ref(null);
 const customStory = ref('');
+const customStoryInput = ref(null);
 const roomIdValidation = ref('idle'); // 'idle' | 'checking' | 'valid_format' | 'invalid_format'
 const MAX_STORY_LENGTH = 20;
 const STORY_WARNING_THRESHOLD = 15;
 let currentGuestName = '';
+
+// Auto-focus custom story input when modal opens
+watch(showSceneSelect, (isOpen) => {
+  if (isOpen) {
+    setTimeout(() => {
+      customStoryInput.value?.focus();
+    }, 100);
+  }
+});
 
 // Computed for custom story character count status
 const customStoryCountStatus = computed(() => {
@@ -833,6 +848,13 @@ function generateGuestName() {
   color: #aaa;
   font-size: 0.9rem;
   letter-spacing: 0;
+}
+
+.room-format-hint {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #999;
+  font-family: var(--font-body);
 }
 
 @keyframes shake {
@@ -1446,6 +1468,17 @@ function generateGuestName() {
   background: var(--color-accent-yellow);
   transform: translateX(5px);
   border-color: var(--color-accent-red);
+}
+
+.story-btn.selected {
+  background: #e8f5e9;
+  border-color: #27ae60;
+}
+
+.story-check {
+  color: #27ae60;
+  font-weight: bold;
+  margin-right: 6px;
 }
 
 .story-text {
