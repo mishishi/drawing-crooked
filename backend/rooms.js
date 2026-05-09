@@ -52,6 +52,22 @@ export function transferOwner(roomId) {
   return room.owner;
 }
 
+export function resetRoomForNewGame(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+  room.status = 'waiting';
+  room.currentRound = 0;
+  room.totalRounds = 0;
+  room.sentences = {};
+  room.drawings = [];
+  room.currentPlayerIndex = 0;
+  // Reset player ready states
+  room.players.forEach(p => {
+    p.ready = false;
+  });
+  return room;
+}
+
 export function getRandomSentence(usedIds = []) {
   const available = sentences.filter(s => !usedIds.includes(s.id));
   if (available.length === 0) return null;
@@ -77,7 +93,7 @@ export function startGame(roomId, io) {
   if (!room) return null;
 
   room.status = 'playing';
-  room.totalRounds = room.players.length;
+  room.totalRounds = 1; // One round: each player draws once in sequence
   room.currentRound = 1;
   room.currentPlayerIndex = 0;
   room.sentences = assignSentences(room.players);
@@ -85,12 +101,22 @@ export function startGame(roomId, io) {
 
   // Send each player their sentence
   room.players.forEach(p => {
+    console.log(`[startGame] emitting your-sentence to ${p.name} (${p.id}):`, room.sentences[p.id]);
     io.to(p.id).emit('your-sentence', { sentence: room.sentences[p.id] });
   });
 
-  // Notify first player to start
+  // Notify all players whose turn it is
   const firstPlayer = room.players[0];
-  io.to(firstPlayer.id).emit('your-turn', { round: 1, currentPlayerName: firstPlayer.name });
+  room.players.forEach((p, index) => {
+    console.log(`[startGame] emitting your-turn to ${p.name} (${p.id}), isMyTurn: ${index === 0}`);
+    io.to(p.id).emit('your-turn', {
+      round: 1,
+      totalRounds: room.totalRounds,
+      currentPlayerName: firstPlayer.name,
+      previousDrawing: null,
+      isMyTurn: index === 0
+    });
+  });
 
   return room;
 }
@@ -99,17 +125,28 @@ export function submitDrawing(roomId, playerId, imageData) {
   const room = getRoom(roomId);
   if (!room) return null;
   if (room.players[room.currentPlayerIndex].id !== playerId) {
+    console.log('[submitDrawing] rejected:', { currentPlayerIndex: room.currentPlayerIndex, currentPlayerId: room.players[room.currentPlayerIndex]?.id, submittedBy: playerId });
     return null; // Not this player's turn
   }
+
+  // Determine what sentence this drawer SAW (for first drawing, it's their own sentence)
+  const sentence = room.drawings.length === 0
+    ? room.sentences[playerId]
+    : room.sentences[room.drawings[room.drawings.length - 1].from];
+  // Determine who this drawing goes to (next player)
+  const toPlayer = room.players[(room.currentPlayerIndex + 1) % room.players.length];
 
   // Save drawing
   room.drawings.push({
     from: playerId,
+    sentence: sentence,
+    to: toPlayer.id,
     imageData: imageData,
     round: room.currentRound,
     playerIndex: room.currentPlayerIndex
   });
 
+  console.log('[submitDrawing] saved drawing for round', room.currentRound, 'playerIndex:', room.currentPlayerIndex, 'total drawings:', room.drawings.length);
   return room;
 }
 
@@ -133,10 +170,17 @@ export function advanceToNextPlayer(roomId, io) {
     }
   } else {
     const nextPlayer = room.players[room.currentPlayerIndex];
-    io.to(nextPlayer.id).emit('your-turn', {
-      round: room.currentRound,
-      previousDrawing: getLastDrawing(room),
-      currentPlayerName: nextPlayer.name
+    const prevDrawing = getLastDrawing(room);
+    console.log(`[advanceToNextPlayer] nextPlayer: ${nextPlayer.name}, prevDrawing: ${prevDrawing ? 'exists' : 'null'}, drawings count: ${room.drawings.length}`);
+    // Notify ALL players whose turn it is
+    room.players.forEach((p, index) => {
+      io.to(p.id).emit('your-turn', {
+        round: room.currentRound,
+        totalRounds: room.totalRounds,
+        previousDrawing: index === room.currentPlayerIndex ? prevDrawing : null,
+        currentPlayerName: nextPlayer.name,
+        isMyTurn: index === room.currentPlayerIndex
+      });
     });
     return { type: 'next-player', room };
   }
@@ -165,24 +209,19 @@ export function startNewRound(roomId, io) {
     io.to(p.id).emit('your-sentence', { sentence: room.sentences[p.id] });
   });
 
-  // Notify first player of new round
+  // Notify all players whose turn it is
   const firstPlayer = room.players[0];
-  io.to(firstPlayer.id).emit('new-round', {
-    round: room.currentRound,
-    totalRounds: room.totalRounds
-  });
-  // Send previous round's last drawing to first player
-  io.to(firstPlayer.id).emit('your-turn', {
-    round: room.currentRound,
-    previousDrawing: lastDrawing,
-    currentPlayerName: firstPlayer.name
-  });
-
-  // Notify others they're waiting
-  room.players.slice(1).forEach(p => {
+  room.players.forEach((p, index) => {
     io.to(p.id).emit('new-round', {
       round: room.currentRound,
       totalRounds: room.totalRounds
+    });
+    io.to(p.id).emit('your-turn', {
+      round: room.currentRound,
+      totalRounds: room.totalRounds,
+      previousDrawing: index === 0 ? lastDrawing : null,
+      currentPlayerName: firstPlayer.name,
+      isMyTurn: index === 0
     });
   });
 
@@ -198,9 +237,11 @@ export function endGame(roomId, io) {
   // Add player names to drawings
   const drawingsWithNames = room.drawings.map(drawing => {
     const player = room.players.find(p => p.id === drawing.from);
+    const toPlayer = room.players.find(p => p.id === drawing.to);
     return {
       ...drawing,
-      playerName: player ? player.name : '未知玩家'
+      playerName: player ? player.name : '未知玩家',
+      toName: toPlayer ? toPlayer.name : '未知'
     };
   });
 
