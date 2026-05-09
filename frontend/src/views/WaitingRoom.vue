@@ -93,6 +93,10 @@
               <span class="ready-text">{{ player.ready ? '已准备' : '等待中' }}</span>
             </div>
           </li>
+          <li v-if="players.length === 0" key="empty" class="player-empty">
+            <span class="empty-icon">🎭</span>
+            <span class="empty-text">等待玩家加入...</span>
+          </li>
         </transition-group>
 
         <div v-if="players.length > 5" class="scroll-hint">
@@ -283,7 +287,16 @@ const handleReconnect = () => {
   socket.emit('join-room', { roomId, playerName });
 };
 
+// Browser history warning - prevent accidental navigation while in waiting room
+function handleBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = '离开将断开与房间的连接。确定要离开吗？';
+  return e.returnValue;
+}
+
 onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   if (!passedRoom) {
     socket.emit('join-room', { roomId, playerName });
   }
@@ -299,6 +312,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   socket.off('room-joined', handleRoomJoined);
   socket.off('room-update', handleRoomUpdate);
   socket.off('player-joined', handlePlayerJoined);
@@ -775,6 +789,24 @@ onUnmounted(() => {
 
 .player-item:last-child {
   border-bottom: none;
+}
+
+.player-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  color: #888;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+.empty-text {
+  font-size: 0.9rem;
 }
 
 @keyframes itemSlide {

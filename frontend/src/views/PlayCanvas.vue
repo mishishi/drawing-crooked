@@ -578,8 +578,52 @@ onMounted(() => {
   }
 });
 
+// Browser history warning - prevent accidental navigation during game
+function handleBeforeUnload(e) {
+  if (gamePhase.value !== 'idle' && gamePhase.value !== 'ended') {
+    e.preventDefault();
+    e.returnValue = '游戏进行中，离开将断开连接。确定要离开吗？';
+    return e.returnValue;
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
+  // Register socket handlers FIRST
+  socket.on('room-joined', handleRoomJoined);
+  socket.on('room-update', handleRoomUpdate);
+  socket.on('player-joined', handlePlayerJoined);
+  socket.on('player-left', handlePlayerLeft);
+  socket.on('your-sentence', handleYourSentence);
+  socket.on('your-turn', handleYourTurn);
+  socket.on('new-round', handleNewRound);
+  socket.on('drawing-update', handleDrawingUpdate);
+  socket.on('game-ended', handleGameEnded);
+  socket.on('game-started', handleGameStarted);
+  socket.on('turn-skipped', handleTurnSkipped);
+  socket.on('reconnect', handleReconnect);
+
+  // Debug: log socket connection state
+  console.log('[PlayCanvas onMounted] socket.connected:', socket.connected, 'socket.id:', socket.id);
+
+  // Connect if not connected and emit join-room when connected
+  if (!socket.connected) {
+    console.log('[PlayCanvas] socket not connected, waiting for connect...');
+    socket.once('connect', () => {
+      console.log('[PlayCanvas] socket connected, emitting join-room');
+      socket.emit('join-room', { roomId, playerName });
+    });
+    socket.connect();
+  } else {
+    console.log('[PlayCanvas] socket already connected, emitting join-room');
+    socket.emit('join-room', { roomId, playerName });
+  }
+});
+
 onUnmounted(() => {
   stopTimer();
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   socket.off('room-joined', handleRoomJoined);
   socket.off('room-update', handleRoomUpdate);
   socket.off('player-joined', handlePlayerJoined);
