@@ -43,6 +43,12 @@ CSS variables are defined in `frontend/src/style.css`:
 - Spacing: `--space-1` (4px) through `--space-16` (64px)
 - Border-radius: `--radius-small`, `--radius-medium`, `--radius-large`, `--radius-full`
 
+## Communication
+
+- 所有项目交流使用简体中文（Simplified Chinese）
+- 代码注释使用中文
+- 提交信息使用中文
+
 ## Conventions
 
 - Use Vue 3 Composition API with `<script setup>`
