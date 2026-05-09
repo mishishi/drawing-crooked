@@ -1,6 +1,7 @@
 <template>
   <div class="reveal">
     <h1 class="title">揭晓时刻</h1>
+    <div v-if="resultsLoaded && myScore > 0" class="score-badge">{{ myScore }}分</div>
 
     <!-- Round navigation -->
     <!-- Desktop: Button pills -->
@@ -22,6 +23,15 @@
         第{{ r }}轮
       </option>
     </select>
+
+    <!-- ChainViewer for simplified chain visualization -->
+    <div v-if="resultsLoaded" class="chain-viewer-section">
+      <ChainViewer
+        v-for="round in roundGroups"
+        :key="`chain-${round.round}`"
+        :chain="round.drawings"
+      />
+    </div>
 
     <div v-if="resultsLoaded" class="timeline" ref="timelineRef">
       <div
@@ -127,6 +137,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { socket } from '../socket/client.js';
 import { gameResults } from '../store/gameStore.js';
+import ChainViewer from '../components/ChainViewer.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -201,6 +212,10 @@ const canScrollChain = computed(() => {
   return container ? container.scrollWidth > container.clientWidth : false;
 });
 
+const myScore = computed(() => {
+  return gameResults.playerScores[myPlayerId.value] || 0;
+});
+
 function getPlayerEmoji(index) {
   const emojis = ['🎨', '🖌️', '🖊️', '✏️', '🖌️', '🎭'];
   return emojis[index % emojis.length];
@@ -211,6 +226,8 @@ function handleRoomJoined({ room, playerId }) {
   if (room && room.status === 'ended' && room.results) {
     gameResults.drawings = room.results.drawings || [];
     gameResults.sentences = room.results.sentences || {};
+    gameResults.playerScores = room.results.playerScores || {};
+    gameResults.roundScoreData = room.results.roundScoreData || [];
   }
   if (playerId) {
     myPlayerId.value = playerId;
@@ -283,6 +300,26 @@ onUnmounted(() => {
   transform: rotate(-2deg);
   text-shadow: 3px 3px 0 var(--color-accent-yellow);
   margin: 0;
+}
+
+.score-badge {
+  font-family: var(--font-display);
+  font-size: var(--text-h1);
+  color: var(--color-accent-yellow);
+  background: var(--color-accent-purple);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 3px solid var(--color-primary);
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+.chain-viewer-section {
+  width: 100%;
+  max-width: 800px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 4px 4px 0 var(--color-primary);
 }
 
 /* Round navigation */

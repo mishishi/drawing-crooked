@@ -9,8 +9,15 @@
         :title="isMobile ? '画笔' : undefined"
         :aria-label="isMobile ? '画笔' : undefined"
       >
+        <svg v-if="!isMobile" class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+          <path d="m15 5 4 4"/>
+        </svg>
+        <svg v-else class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+          <path d="m15 5 4 4"/>
+        </svg>
         <span v-if="!isMobile">画笔<span v-if="currentTool === 'pen'" class="active-indicator"> ✓</span></span>
-        <span v-else class="icon-only">✏️</span>
       </button>
       <button
         class="tool-btn eraser-btn"
@@ -19,17 +26,26 @@
         :title="isMobile ? '橡皮擦' : undefined"
         :aria-label="isMobile ? '橡皮擦' : undefined"
       >
-        <span v-if="!isMobile">🧹 橡皮<span v-if="currentTool === 'eraser'" class="active-indicator"> ✓</span></span>
-        <span v-else class="icon-only">🧹</span>
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/>
+          <path d="M22 21H7"/>
+          <path d="m5 11 9 9"/>
+        </svg>
+        <span v-if="!isMobile">橡皮<span v-if="currentTool === 'eraser'" class="active-indicator"> ✓</span></span>
       </button>
       <button
         class="tool-btn undo-btn"
         @click="$emit('undo')"
-        title="撤销"
+        :title="isMobile ? undefined : '撤销'"
+        :aria-label="isMobile ? '撤销' : undefined"
         :disabled="undoCount === 0"
         :class="{ disabled: undoCount === 0 }"
       >
-        <span class="icon-only">↩️</span>
+        <svg class="tool-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7v6h6"/>
+          <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/>
+        </svg>
+        <span>撤销</span>
       </button>
     </div>
 
@@ -186,7 +202,7 @@ const colors = [
   padding: 8px 14px;
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-small);
-  background: #fff;
+  background: var(--color-white);
   cursor: pointer;
   font-size: var(--text-caption);
   font-weight: bold;
@@ -208,16 +224,16 @@ const colors = [
 
 .tool-btn.active {
   background: var(--color-accent-purple);
-  color: #fff;
+  color: var(--color-white);
   border-color: var(--color-accent-purple);
   box-shadow: 2px 2px 0 var(--color-accent-purple);
 }
 
 .eraser-btn.active {
-  background: #f5f5f5;
-  color: #666;
-  border-color: #999;
-  box-shadow: 2px 2px 0 #999;
+  background: var(--color-gray-light);
+  color: var(--color-gray-dark);
+  border-color: var(--color-gray-mid);
+  box-shadow: 2px 2px 0 var(--color-gray-mid);
 }
 
 .size-btn {
@@ -225,7 +241,7 @@ const colors = [
   height: 38px;
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-small);
-  background: #fff;
+  background: var(--color-white);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -270,8 +286,8 @@ const colors = [
 }
 
 .color-btn {
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-full);
   cursor: pointer;
@@ -293,11 +309,11 @@ const colors = [
 
 .eraser-size-hint {
   font-size: var(--text-small);
-  color: #666;
-  background: #f0f0f0;
+  color: var(--color-gray-dark);
+  background: var(--color-gray-light);
   padding: 4px 10px;
   border-radius: var(--radius-small);
-  border: 2px solid #ddd;
+  border: 2px solid var(--color-gray-border);
   font-weight: bold;
 }
 
@@ -316,7 +332,7 @@ const colors = [
   padding: 0;
   border: 2px solid var(--color-primary);
   border-radius: var(--radius-small);
-  background: #fff;
+  background: var(--color-white);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -335,13 +351,13 @@ const colors = [
 }
 
 .colors-compact .color-btn {
-  width: 24px;
-  height: 24px;
-  box-shadow: 1px 1px 0 var(--color-primary);
+  width: 36px;
+  height: 36px;
+  box-shadow: 2px 2px 0 var(--color-primary);
 }
 
 .color-check {
-  color: white;
+  color: var(--color-white);
   font-size: 10px;
   font-weight: bold;
   text-shadow: 0 0 2px rgba(0,0,0,0.5);
@@ -350,6 +366,18 @@ const colors = [
 .tool-btn.disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.tool-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 @media (max-width: 400px) {
@@ -361,6 +389,11 @@ const colors = [
   .tool-btn {
     padding: 6px 10px;
     font-size: 12px;
+  }
+
+  .tool-btn .tool-icon {
+    width: 20px;
+    height: 20px;
   }
 }
 </style>

@@ -50,9 +50,18 @@
         <span class="turn-text">{{ currentPlayerName }} 正在画...</span>
       </div>
 
-      <div v-else class="turn-banner drawing">
+      <div v-else class="turn-banner drawing" :class="{ 'just-started': turnJustStarted }">
         <div class="turn-indicator"></div>
         <span class="turn-text">轮到你了！快画吧～</span>
+      </div>
+
+      <!-- Mobile turn reminder - extra prominent for mobile users -->
+      <div v-if="!isMyTurn && isMobile" class="mobile-turn-reminder">
+        <div class="reminder-icon">🎨</div>
+        <div class="reminder-text">
+          <span class="reminder-title">等待 {{ currentPlayerName }} 画完</span>
+          <span class="reminder-subtitle">轮到你时会有提示</span>
+        </div>
       </div>
 
       <!-- Sentence card - speech bubble style -->
@@ -84,7 +93,7 @@
           <circle cx="50" cy="50" r="40" class="clock-inner"/>
           <!-- Clock hands -->
           <line x1="50" y1="50" x2="50" y2="20" class="clock-hand" :class="{ warning: timeLeft <= 10 }"/>
-          <line x1="50" y1="50" x2="50" y2="35" class="clock-hand minute-hand" :class="{ spinning: timeLeft <= 10 }"/>
+          <line x1="50" y1="50" x2="50" y2="35" class="clock-hand minute-hand" :class="{ warning: timeLeft <= 5 }"/>
           <circle cx="50" cy="50" r="4" class="clock-center"/>
           <!-- Tick marks -->
           <g class="tick-marks">
@@ -92,7 +101,7 @@
               :transform="`rotate(${i * 30} 50 50)`" class="tick"/>
           </g>
         </svg>
-        <span class="timer-digit" :class="{ warning: timeLeft <= 10 }">{{ timeLeft }}</span>
+        <span class="timer-digit" :class="{ warning: timeLeft <= 10 && timeLeft > 5, critical: timeLeft <= 5 }">{{ timeLeft }}</span>
       </div>
 
       <!-- Interpretation bubble - shows what player is interpreting -->
@@ -113,7 +122,18 @@
         </div>
       </div>
 
-      <!-- Canvas area -->
+      <!-- Viewing area for non-current players (real-time view of current player's drawing) -->
+      <div v-if="!isMyTurn" class="viewing-canvas-area">
+        <div class="viewing-label">
+          <span class="viewing-icon">👀</span>
+          <span>{{ currentPlayerName }} 正在画...</span>
+        </div>
+        <div class="viewing-canvas-frame">
+          <canvas ref="viewingCanvasRef" class="viewing-canvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Canvas area for current player -->
       <div v-if="isMyTurn" class="canvas-area">
         <div class="canvas-frame">
           <GameCanvas
@@ -127,17 +147,6 @@
         <div class="canvas-deco deco-left"></div>
         <div class="canvas-deco deco-right"></div>
       </div>
-
-      <!-- Turn indicator overlay -->
-      <transition name="turn-flash">
-        <div v-if="showTurnIndicator" class="turn-indicator" @click="dismissCelebration">
-          <div class="turn-content">
-            <span class="turn-emoji">🎉</span>
-            <h2 class="turn-text">轮到你了！</h2>
-            <p class="turn-subtext">你的题目: {{ sentence }}</p>
-          </div>
-        </div>
-      </transition>
 
       <!-- Toolbar -->
       <div v-if="isMyTurn" class="toolbar-area">
@@ -176,14 +185,18 @@
     <div class="doodle doodle-2">🎨</div>
     <div class="doodle doodle-3">✨</div>
 
-    <!-- Handoff Animation -->
-    <HandoffAnimation
-      :show="showHandoff"
-      :imageData="handoffImageData"
-      :message="handoffMessage"
-      @animation-complete="handleHandoffComplete"
-    />
   </div>
+
+  <!-- Custom Confirm Modal -->
+  <ConfirmModal
+    ref="confirmModalRef"
+    title="跳过回合"
+    message="确定要跳过回合吗？将扣除5分！"
+    confirmText="确定跳过"
+    cancelText="继续画"
+    confirmClass="danger"
+    icon="⚠️"
+  />
 </template>
 
 <script setup>
@@ -191,7 +204,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import Toolbar from '../components/Toolbar.vue';
-import HandoffAnimation from '../components/HandoffAnimation.vue';
+import ConfirmModal from '../components/ConfirmModal.vue';
 import { socket, connectionState } from '../socket/client.js';
 import { setGameResults, clearGameResults } from '../store/gameStore.js';
 import { showToast } from '../store/toastStore.js';
@@ -226,6 +239,7 @@ const roomId = route.params.roomId;
 // Core game state
 const sentence = ref('');
 const isMyTurn = ref(false);
+const turnJustStarted = ref(false);
 const currentRound = ref(1);
 const totalRounds = ref(1);
 const currentPlayerName = ref('');
@@ -236,24 +250,25 @@ const timeWarningShown = ref(false);
 
 // Canvas state
 const gameCanvasRef = ref(null);
+const viewingCanvasRef = ref(null);
+const confirmModalRef = ref(null);
 const currentTool = ref('pen');
 const currentColor = ref('#000000');
 const currentSize = ref(8);
-
-// Turn indicator state
-const showTurnIndicator = ref(false);
-let turnIndicatorTimeout = null;
-
-// Handoff animation state
-const showHandoff = ref(false);
-const handoffImageData = ref(null);
-const handoffMessage = ref('');
-let handoffTimeout = null;
 
 // Player state
 const players = ref([]);
 let myPlayerId = '';
 const playerName = route.query.name || localStorage.getItem('playerName') || '';
+
+// Mobile detection
+const windowWidth = ref(window.innerWidth);
+function handleResize() {
+  windowWidth.value = window.innerWidth;
+}
+onMounted(() => window.addEventListener('resize', handleResize));
+onUnmounted(() => window.removeEventListener('resize', handleResize));
+const isMobile = computed(() => windowWidth.value < 600);
 
 // Computed
 const currentPlayerPosition = computed(() => {
@@ -290,62 +305,16 @@ const undoCount = computed(() => {
   return gameCanvasRef.value?.undoCount ?? 0;
 });
 
-// Watch for isMyTurn changes to show celebration
-watch(isMyTurn, (newVal) => {
-  if (newVal) {
-    // It's my turn - show celebration first
-    showTurnIndicator.value = true;
-    // Clear any existing timeout
-    if (turnIndicatorTimeout) clearTimeout(turnIndicatorTimeout);
-    // Hide after 1.5 seconds and clear canvas
-    turnIndicatorTimeout = setTimeout(() => {
-      showTurnIndicator.value = false;
-      // Clear canvas for new drawing
-      if (gameCanvasRef.value) {
-        gameCanvasRef.value.clearCanvas();
-      }
-    }, 1500);
+// Watch for turn changes to trigger flash effect
+watch(isMyTurn, (newVal, oldVal) => {
+  if (newVal && !oldVal) {
+    // Just became my turn - trigger flash
+    turnJustStarted.value = true;
+    setTimeout(() => {
+      turnJustStarted.value = false;
+    }, 1000);
   }
 });
-
-// Dismiss celebration early on tap
-function dismissCelebration() {
-  if (showTurnIndicator.value) {
-    showTurnIndicator.value = false;
-    if (turnIndicatorTimeout) clearTimeout(turnIndicatorTimeout);
-    if (gameCanvasRef.value) {
-      gameCanvasRef.value.clearCanvas();
-    }
-  }
-}
-
-// Handoff animation functions
-function triggerHandoff(imageData, message = '传递中...') {
-  if (handoffTimeout) clearTimeout(handoffTimeout);
-  handoffImageData.value = imageData;
-  handoffMessage.value = message;
-  showHandoff.value = true;
-  handoffTimeout = setTimeout(() => {
-    showHandoff.value = false;
-  }, 1500);
-}
-
-function handleHandoffComplete() {
-  console.log('[handoff] animation complete');
-  // Clear handoff timeout to prevent double-fire
-  if (handoffTimeout) {
-    clearTimeout(handoffTimeout);
-    handoffTimeout = null;
-  }
-  // Now it's the player's turn - show celebration
-  isMyTurn.value = true;
-  if (previousDrawing.value) {
-    gameCanvasRef.value?.setImageData(previousDrawing.value);
-  } else {
-    gameCanvasRef.value?.clearCanvas();
-  }
-  startTimer();
-}
 
 // Timer functions
 function startTimer() {
@@ -432,8 +401,9 @@ function undoCanvas() {
   gameCanvasRef.value?.undo();
 }
 
-function confirmSkip() {
-  if (confirm('确定要跳过回合吗？将扣除5分！')) {
+async function confirmSkip() {
+  const confirmed = await confirmModalRef.value?.show();
+  if (confirmed) {
     socket.emit('skip-turn', { roomId });
   }
 }
@@ -449,28 +419,39 @@ function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName
   if (total) totalRounds.value = total;
   currentPlayerName.value = name || '';
   previousDrawing.value = prevDrawing || null;
-  console.log('[your-turn] isMyTurn set to:', isMyTurn.value);
 
-  // If we have a previous drawing, show handoff first, then set isMyTurn
-  // If no previous drawing, set isMyTurn immediately
-  if (myTurn && prevDrawing) {
-    // Trigger handoff, which will chain to celebration via handleHandoffComplete
-    triggerHandoff(prevDrawing, '看看上一位画了什么~');
-    // Don't set isMyTurn yet - let handleHandoffComplete do it after animation
+  isMyTurn.value = myTurn;
+
+  if (myTurn) {
+    // My turn - clear my canvas (and show prev drawing as reference via interpretation bubble)
+    if (gameCanvasRef.value) {
+      gameCanvasRef.value.clearCanvas();
+    }
+    startTimer();
   } else {
-    // No handoff needed, set isMyTurn immediately
-    isMyTurn.value = myTurn;
-    if (isMyTurn.value) {
-      if (prevDrawing) {
-        gameCanvasRef.value?.setImageData(prevDrawing);
-      } else {
-        gameCanvasRef.value?.clearCanvas();
-      }
-      startTimer();
-    } else {
-      stopTimer();
+    // Not my turn - stop timer, show viewing canvas with prev drawing
+    stopTimer();
+    // Draw the previous drawing on viewing canvas so everyone can see
+    if (prevDrawing && viewingCanvasRef.value) {
+      drawToViewingCanvas(prevDrawing);
     }
   }
+}
+
+function drawToViewingCanvas(imageData) {
+  const canvas = viewingCanvasRef.value;
+  if (!canvas || !imageData) return;
+
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  img.onload = () => {
+    // Set canvas size to match image
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+  };
+  img.src = imageData;
 }
 
 function handleNewRound({ round, totalRounds: total }) {
@@ -480,7 +461,11 @@ function handleNewRound({ round, totalRounds: total }) {
 }
 
 function handleDrawingUpdate({ imageData }) {
+  // Update the viewing canvas so everyone can see current player's drawing in real-time
   previousDrawing.value = imageData;
+  if (viewingCanvasRef.value && !isMyTurn.value) {
+    drawToViewingCanvas(imageData);
+  }
 }
 
 function handleGameEnded({ roomId: rid, results }) {
@@ -493,6 +478,7 @@ function handleGameEnded({ roomId: rid, results }) {
 
 function handleGameStarted({ roomId: rid }) {
   clearGameResults();
+  sentence.value = ''; // Clear any stale sentence
   router.push({ name: 'play', params: { roomId: rid } });
 }
 
@@ -772,7 +758,7 @@ onUnmounted(() => {
   box-shadow: 4px 4px 0 var(--color-primary);
   font-weight: bold;
   font-family: var(--font-body);
-  animation: shake 0.5s infinite;
+  animation: timeWarningPulse 1s ease-in-out infinite;
 }
 
 .warning-icon {
@@ -805,6 +791,41 @@ onUnmounted(() => {
   color: white;
   border-color: var(--color-primary);
   transform: rotate(1deg);
+  animation: turnPulse 1.5s ease-in-out infinite;
+}
+
+.turn-banner.drawing .turn-text {
+  font-size: 1.5rem;
+}
+
+.turn-banner.drawing.just-started {
+  animation: turnFlash 0.6s ease-out, turnPulse 1.5s ease-in-out 0.6s infinite;
+}
+
+@keyframes turnPulse {
+  0%, 100% {
+    box-shadow: 4px 4px 0 var(--color-primary);
+    transform: rotate(1deg) scale(1);
+  }
+  50% {
+    box-shadow: 6px 6px 0 var(--color-primary), 0 0 20px var(--color-accent-red);
+    transform: rotate(1deg) scale(1.02);
+  }
+}
+
+@keyframes turnFlash {
+  0% {
+    opacity: 0;
+    transform: rotate(1deg) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(1deg) scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(1deg) scale(1);
+  }
 }
 
 .turn-indicator {
@@ -858,8 +879,10 @@ onUnmounted(() => {
 }
 
 .sentence-card.myTurn .speech-bubble {
-  background: linear-gradient(135deg, #fff 0%, #f0f0ff 100%);
+  background: linear-gradient(135deg, #fff8f8 0%, #f8f0ff 50%, #fff0f8 100%);
   border-color: var(--color-accent-purple);
+  border-width: 4px;
+  box-shadow: 5px 5px 0 var(--color-accent-purple), 0 0 15px var(--color-accent-purple);
 }
 
 .bubble-label {
@@ -956,12 +979,20 @@ onUnmounted(() => {
   stroke-width: 3;
   stroke-linecap: round;
   transform-origin: 50px 50px;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, stroke 0.3s ease;
+}
+
+.clock-hand.warning {
+  stroke: #f39c12; /* Orange at 10s */
 }
 
 .clock-hand.minute-hand {
   stroke: var(--color-accent-purple);
   stroke-width: 2;
+}
+
+.clock-hand.minute-hand.warning {
+  stroke: var(--color-accent-red); /* Red at 5s */
 }
 
 .clock-center {
@@ -986,14 +1017,29 @@ onUnmounted(() => {
 }
 
 .timer-digit.warning {
+  color: #f39c12; /* Orange for 10s warning - softer than red */
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.timer-digit.critical {
   color: var(--color-accent-red);
-  animation: shake 0.5s infinite;
+  animation: shake 0.3s infinite; /* Faster shake at 5s */
 }
 
 @keyframes shake {
   0%, 100% { transform: translate(-50%, -50%) rotate(0); }
   25% { transform: translate(-50%, -50%) rotate(-3deg); }
   75% { transform: translate(-50%, -50%) rotate(3deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
+}
+
+@keyframes timeWarningPulse {
+  0%, 100% { transform: scale(1); box-shadow: 4px 4px 0 var(--color-primary); }
+  50% { transform: scale(1.02); box-shadow: 6px 6px 0 var(--color-primary), 0 0 15px rgba(231, 76, 60, 0.3); }
 }
 
 .viewing-canvas-area {
@@ -1037,6 +1083,13 @@ onUnmounted(() => {
   width: 100%;
   height: auto;
   display: block;
+}
+
+.viewing-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: white;
 }
 
 .canvas-area {
@@ -1350,5 +1403,49 @@ onUnmounted(() => {
   .doodle {
     display: none;
   }
+
+  .mobile-turn-reminder {
+    display: flex;
+  }
+
+  .turn-banner .turn-text {
+    font-size: 14px;
+  }
+}
+
+/* Mobile turn reminder - hidden by default, shown on mobile */
+.mobile-turn-reminder {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--color-accent-purple) 0%, #8e44ad 100%);
+  color: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-primary);
+  animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.reminder-icon {
+  font-size: 2rem;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.reminder-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reminder-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.reminder-subtitle {
+  font-size: 0.85rem;
+  opacity: 0.9;
 }
 </style>

@@ -1,10 +1,17 @@
 <template>
   <div class="waiting-room">
-    <!-- Disconnected overlay -->
-    <div v-if="isDisconnected" class="disconnected-overlay">
-      <div class="disconnected-message">
-        <span class="disconnected-icon">📡</span>
-        <span>连接中断，正在重连...</span>
+    <!-- Connection overlay -->
+    <div v-if="connectionState !== 'connected'" class="connection-overlay">
+      <div class="connection-message" :class="connectionState">
+        <span v-if="connectionState === 'reconnecting'" class="connection-icon spinning">🔄</span>
+        <span v-else class="connection-icon">📡</span>
+        <span v-if="connectionState === 'reconnecting'" class="connection-text">正在重新连接...</span>
+        <span v-else class="connection-text">连接已断开</span>
+        <div v-if="connectionState === 'reconnecting'" class="reconnect-progress">
+          <div class="reconnect-dot"></div>
+          <div class="reconnect-dot"></div>
+          <div class="reconnect-dot"></div>
+        </div>
       </div>
     </div>
 
@@ -15,6 +22,20 @@
     <div class="deco deco-1">📝</div>
     <div class="deco deco-2">🎮</div>
     <div class="deco deco-3">✨</div>
+
+    <!-- Suspense poster -->
+    <div class="suspense-poster">
+      <div class="poster-warning">
+        <span class="poster-warning-icon">⚠️</span>
+        <span>警告：内容可能被歪曲</span>
+      </div>
+      <div class="poster-count">
+        <span>👀 {{ players.length }}人已就位{{ players.length < 2 ? '，等待最后' + (2 - players.length) + '人...' : '!' }}</span>
+      </div>
+      <div class="poster-quote">
+        <p>"当你看到这句话的时候，一切都已经晚了"</p>
+      </div>
+    </div>
 
     <!-- Main content -->
     <div class="waiting-content">
@@ -35,6 +56,10 @@
             <button @click="shareRoom" class="share-btn">
               <span>🔗</span> 分享邀请链接
             </button>
+          </div>
+          <div v-if="isRandomMode" class="random-story-badge">
+            <span class="badge-icon">🎲</span>
+            <span>随机故事模式</span>
           </div>
         </div>
       </header>
@@ -64,7 +89,7 @@
               </span>
             </div>
             <div class="ready-indicator" :class="{ ready: player.ready }">
-              <span class="ready-icon">{{ player.ready ? '✓' : '○' }}</span>
+              <span class="ready-icon">{{ player.ready ? '✓' : '⏱' }}</span>
               <span class="ready-text">{{ player.ready ? '已准备' : '等待中' }}</span>
             </div>
           </li>
@@ -91,11 +116,12 @@
           v-if="isOwner"
           @click="startGame"
           class="action-btn start-btn"
-          :disabled="!canStart"
+          :class="{ loading: isStarting }"
+          :disabled="!canStart || isStarting"
         >
-          <span class="btn-icon">🚀</span>
-          <span class="btn-text">开始游戏</span>
-          <span class="btn-arrow">→</span>
+          <span class="btn-icon">{{ isStarting ? '↻' : '🚀' }}</span>
+          <span class="btn-text">{{ isStarting ? '开始中...' : '开始游戏' }}</span>
+          <span v-if="!isStarting" class="btn-arrow">→</span>
         </button>
       </div>
 
@@ -133,7 +159,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { socket } from '../socket/client.js';
+import { socket, connectionState } from '../socket/client.js';
 import { showToast } from '../store/toastStore.js';
 
 const route = useRoute();
@@ -143,7 +169,6 @@ const playerName = route.query.name || '';
 const playerId = ref('');
 const room = ref({ players: [] });
 const ownerId = ref('');
-const isDisconnected = ref(false);
 
 const passedRoom = route.query.room ? JSON.parse(route.query.room) : null;
 if (passedRoom) {
@@ -154,6 +179,7 @@ if (passedRoom) {
 
 const codeCopied = ref(false);
 const linkCopied = ref(false);
+const isStarting = ref(false);
 
 const isOwner = computed(() => playerId.value === ownerId.value);
 
@@ -172,6 +198,8 @@ const canStart = computed(() => {
 
 const players = computed(() => room.value.players || []);
 
+const isRandomMode = computed(() => room.value.selectedStory === null || room.value.selectedStory === undefined);
+
 function getAvatarEmoji(index) {
   const avatars = ['🧑', '👩', '👨', '🧔', '👵', '👴', '🧑‍🎤', '👩‍🎨'];
   return avatars[index % avatars.length];
@@ -182,7 +210,9 @@ function toggleReady() {
 }
 
 function startGame() {
+  isStarting.value = true;
   socket.emit('start-game', { roomId });
+  setTimeout(() => { isStarting.value = false; }, 5000); // fallback reset
 }
 
 function copyRoomCode() {
@@ -238,6 +268,7 @@ const handleRoomUpdate = ({ room: r }) => {
 };
 
 const handleGameStarted = ({ roomId: rid }) => {
+  isStarting.value = false;
   router.push({ name: 'play', params: { roomId: rid } });
 };
 
@@ -246,13 +277,7 @@ const handleError = ({ message }) => {
   // Don't auto-navigate home - let user retry with their input preserved
 };
 
-const handleDisconnect = () => {
-  isDisconnected.value = true;
-  showToast('网络连接已断开，正在重连...', 'error');
-};
-
 const handleReconnect = () => {
-  isDisconnected.value = false;
   showToast('已重新连接', 'success');
   // Re-join the room to sync state
   socket.emit('join-room', { roomId, playerName });
@@ -270,7 +295,6 @@ onMounted(() => {
   socket.on('player-status-changed', handlePlayerStatusChanged);
   socket.on('game-started', handleGameStarted);
   socket.on('error', handleError);
-  socket.on('disconnect', handleDisconnect);
   socket.on('connect', handleReconnect);
 });
 
@@ -282,7 +306,6 @@ onUnmounted(() => {
   socket.off('player-status-changed', handlePlayerStatusChanged);
   socket.off('game-started', handleGameStarted);
   socket.off('error', handleError);
-  socket.off('disconnect', handleDisconnect);
   socket.off('connect', handleReconnect);
 });
 </script>
@@ -346,8 +369,81 @@ onUnmounted(() => {
   50% { transform: translateY(-12px) rotate(8deg); }
 }
 
-/* Disconnected overlay */
-.disconnected-overlay {
+/* Suspense poster */
+.suspense-poster {
+  position: relative;
+  z-index: 10;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 4px solid #e94560;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 8px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(233, 69, 96, 0.3), 8px 8px 0 rgba(233, 69, 96, 0.2);
+  animation: posterPulse 3s ease-in-out infinite;
+}
+
+@keyframes posterPulse {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3), 8px 8px 0 rgba(233, 69, 96, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(233, 69, 96, 0.5), 8px 8px 0 rgba(233, 69, 96, 0.3);
+  }
+}
+
+.poster-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(233, 69, 96, 0.2);
+  border: 2px solid #e94560;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  color: #e94560;
+  font-weight: bold;
+  font-size: 0.95rem;
+}
+
+.poster-warning-icon {
+  font-size: 1.2rem;
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+.poster-count {
+  color: #fff;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.poster-quote {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9rem;
+  border-top: 1px solid rgba(233, 69, 96, 0.3);
+  padding-top: 10px;
+  margin: 0;
+}
+
+.poster-quote p {
+  margin: 0;
+  animation: quoteFade 4s ease-in-out infinite;
+}
+
+@keyframes quoteFade {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Connection overlay */
+.connection-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -358,24 +454,64 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 }
 
-.disconnected-message {
+.connection-message {
   background: white;
-  padding: 20px 32px;
+  padding: 24px 36px;
   border-radius: 16px;
   border: 4px solid var(--color-accent-red);
   box-shadow: 6px 6px 0 var(--color-accent-red);
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
   font-size: 1.1rem;
   font-weight: bold;
   color: var(--color-accent-red);
+  min-width: 200px;
 }
 
-.disconnected-icon {
-  font-size: 1.5rem;
+.connection-message.reconnecting {
+  border-color: var(--color-accent-yellow);
+  color: var(--color-primary);
+}
+
+.connection-icon {
+  font-size: 2rem;
+}
+
+.connection-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reconnect-progress {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.reconnect-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent-yellow);
+  border-radius: 50%;
+  animation: dotBounce 1.4s ease-in-out infinite;
+}
+
+.reconnect-dot:nth-child(1) { animation-delay: 0s; }
+.reconnect-dot:nth-child(2) { animation-delay: 0.2s; }
+.reconnect-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
+  40% { transform: scale(1.3); opacity: 1; }
 }
 
 /* Content */
@@ -512,6 +648,37 @@ onUnmounted(() => {
 .share-btn:hover {
   transform: translateY(-2px);
   box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+/* Random story badge */
+.random-story-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.badge-icon {
+  font-size: 1rem;
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes badgePop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Players card */
@@ -785,6 +952,15 @@ onUnmounted(() => {
 .btn-arrow {
   font-size: 1.2rem;
   opacity: 0.8;
+}
+
+.start-btn.loading .btn-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Hints */
