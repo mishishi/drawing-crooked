@@ -264,9 +264,9 @@ const currentPlayerPosition = computed(() => {
 
 // User's position in the turn queue
 const myPositionInQueue = computed(() => {
-  if (!myPlayerId.value || !currentPlayerName.value) return 1;
+  if (!myPlayerId || !currentPlayerName.value) return 1;
   const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
-  const myIdx = players.value.findIndex(p => p.id === myPlayerId.value);
+  const myIdx = players.value.findIndex(p => p.id === myPlayerId);
   if (currentIdx === -1 || myIdx === -1) return 1;
 
   // Calculate how many players ahead of me (not including current)
@@ -275,9 +275,9 @@ const myPositionInQueue = computed(() => {
 });
 
 const playersAheadInQueue = computed(() => {
-  if (!myPlayerId.value || !currentPlayerName.value) return players.value.length - 1;
+  if (!myPlayerId || !currentPlayerName.value) return players.value.length - 1;
   const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
-  const myIdx = players.value.findIndex(p => p.id === myPlayerId.value);
+  const myIdx = players.value.findIndex(p => p.id === myPlayerId);
   if (currentIdx === -1 || myIdx === -1) return players.value.length - 1;
 
   // Count players between current (exclusive) and me (exclusive)
@@ -332,6 +332,19 @@ function triggerHandoff(imageData, message = '传递中...') {
 
 function handleHandoffComplete() {
   console.log('[handoff] animation complete');
+  // Clear handoff timeout to prevent double-fire
+  if (handoffTimeout) {
+    clearTimeout(handoffTimeout);
+    handoffTimeout = null;
+  }
+  // Now it's the player's turn - show celebration
+  isMyTurn.value = true;
+  if (previousDrawing.value) {
+    gameCanvasRef.value?.setImageData(previousDrawing.value);
+  } else {
+    gameCanvasRef.value?.clearCanvas();
+  }
+  startTimer();
 }
 
 // Timer functions
@@ -435,28 +448,28 @@ function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName
   currentRound.value = round;
   if (total) totalRounds.value = total;
   currentPlayerName.value = name || '';
-  isMyTurn.value = myTurn;
   previousDrawing.value = prevDrawing || null;
   console.log('[your-turn] isMyTurn set to:', isMyTurn.value);
 
-  // Trigger handoff animation if it's my turn with a previous drawing
-  if (isMyTurn.value && prevDrawing) {
+  // If we have a previous drawing, show handoff first, then set isMyTurn
+  // If no previous drawing, set isMyTurn immediately
+  if (myTurn && prevDrawing) {
+    // Trigger handoff, which will chain to celebration via handleHandoffComplete
     triggerHandoff(prevDrawing, '看看上一位画了什么~');
-  }
-
-  if (isMyTurn.value) {
-    console.log('[your-turn] it is my turn, setting up canvas');
-    if (prevDrawing) {
-      console.log('[your-turn] setting previous drawing');
-      gameCanvasRef.value?.setImageData(prevDrawing);
-    } else {
-      console.log('[your-turn] clearing canvas');
-      gameCanvasRef.value?.clearCanvas();
-    }
-    startTimer();
+    // Don't set isMyTurn yet - let handleHandoffComplete do it after animation
   } else {
-    console.log('[your-turn] not my turn, stopping timer');
-    stopTimer();
+    // No handoff needed, set isMyTurn immediately
+    isMyTurn.value = myTurn;
+    if (isMyTurn.value) {
+      if (prevDrawing) {
+        gameCanvasRef.value?.setImageData(prevDrawing);
+      } else {
+        gameCanvasRef.value?.clearCanvas();
+      }
+      startTimer();
+    } else {
+      stopTimer();
+    }
   }
 }
 
@@ -1299,6 +1312,25 @@ onUnmounted(() => {
 @keyframes bounceUp {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .sentence-card,
+  .timer-wrapper,
+  .interpretation-bubble,
+  .hint-arrow {
+    animation: none;
+  }
+
+  .turn-indicator {
+    animation: none;
+  }
+
+  .turn-flash-enter-active,
+  .turn-flash-leave-active {
+    animation: none;
+  }
 }
 
 @media (max-width: 600px) {

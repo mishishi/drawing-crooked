@@ -12,7 +12,7 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   show: {
@@ -32,19 +32,30 @@ const props = defineProps({
 const emit = defineEmits(['animation-complete']);
 
 let timeout = null;
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function handleClick() {
+  // Clear timeout to prevent double emit
+  if (timeout) {
+    clearTimeout(timeout);
+    timeout = null;
+  }
   // Allow clicking to dismiss early
   emit('animation-complete');
 }
 
 onMounted(() => {
-  // Emit animation-complete after transition duration
-  timeout = setTimeout(() => {
-    if (props.show) {
-      emit('animation-complete');
-    }
-  }, 1500);
+  if (prefersReducedMotion) {
+    // Skip animation, emit immediately
+    emit('animation-complete');
+  } else {
+    // Emit animation-complete after transition duration
+    timeout = setTimeout(() => {
+      if (props.show) {
+        emit('animation-complete');
+      }
+    }, 1500);
+  }
 });
 
 onUnmounted(() => {
@@ -110,6 +121,26 @@ onUnmounted(() => {
 
 .handoff-leave-active {
   animation: handoffOut 0.4s ease-in forwards;
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .handoff-overlay {
+    animation: none;
+  }
+
+  .handoff-image-wrapper {
+    animation: none;
+  }
+
+  .handoff-message {
+    animation: none;
+  }
+
+  .handoff-enter-active,
+  .handoff-leave-active {
+    animation: none;
+  }
 }
 
 /* Keyframes */
