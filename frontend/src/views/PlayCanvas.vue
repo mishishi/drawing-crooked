@@ -60,12 +60,19 @@
         <div class="speech-bubble">
           <span class="bubble-label">
             <template v-if="isMyTurn">
-              <span v-if="previousDrawing" class="label-seen">👀 看到句子</span>
+              <span v-if="previousDrawing" class="label-interpret">🎨 画出来</span>
               <span v-else class="label-original">🎯 原句</span>
             </template>
             <template v-else>等待中...</template>
           </span>
-          <span class="bubble-text">{{ sentence || '等待中...' }}</span>
+          <span class="bubble-text">
+            <template v-if="isMyTurn && previousDrawing">
+              上一位画的是什么？把它画出来！
+            </template>
+            <template v-else>
+              {{ sentence || '等待中...' }}
+            </template>
+          </span>
         </div>
         <div class="bubble-tail"></div>
       </div>
@@ -88,14 +95,21 @@
         <span class="timer-digit" :class="{ warning: timeLeft <= 10 }">{{ timeLeft }}</span>
       </div>
 
-      <!-- Previous drawing - full size view for non-players -->
-      <div v-if="!isMyTurn && previousDrawing" class="viewing-canvas-area">
-        <div class="viewing-label">
-          <span class="viewing-icon">👀</span>
-          <span>上一幅画</span>
+      <!-- Interpretation bubble - shows what player is interpreting -->
+      <div v-if="isMyTurn && previousDrawing" class="interpretation-bubble">
+        <div class="bubble-header">
+          <span class="bubble-icon">💭</span>
+          <span class="bubble-title">你在画什么？</span>
         </div>
-        <div class="viewing-canvas-frame">
-          <img :src="previousDrawing" alt="Previous drawing" class="viewing-image" />
+        <div class="bubble-content">
+          <div class="prev-drawing-mini">
+            <img :src="previousDrawing" alt="Previous drawing" />
+          </div>
+          <div class="bubble-hint">
+            <span class="hint-arrow">👆</span>
+            <span>参考上面的画</span>
+            <span class="hint-arrow">👆</span>
+          </div>
         </div>
       </div>
 
@@ -843,7 +857,7 @@ onUnmounted(() => {
   letter-spacing: 1px;
 }
 
-.label-seen {
+.label-interpret {
   color: var(--color-accent-purple);
   font-weight: bold;
 }
@@ -1216,6 +1230,75 @@ onUnmounted(() => {
 @keyframes flashOut {
   from { opacity: 1; transform: scale(1); }
   to { opacity: 0; transform: scale(1.1); }
+}
+
+.interpretation-bubble {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(135deg, #fff 0%, #fff8e7 100%);
+  border: 3px solid var(--color-accent-yellow);
+  border-radius: 20px;
+  padding: 16px;
+  box-shadow: 5px 5px 0 var(--color-accent-yellow);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.bubble-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px dashed var(--color-accent-yellow);
+}
+
+.bubble-icon {
+  font-size: 1.5rem;
+}
+
+.bubble-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--color-accent-purple);
+}
+
+.bubble-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.prev-drawing-mini {
+  width: 120px;
+  height: 90px;
+  border: 3px solid var(--color-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.prev-drawing-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.bubble-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.hint-arrow {
+  animation: bounceUp 1s ease-in-out infinite;
+}
+
+@keyframes bounceUp {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
 }
 
 @media (max-width: 600px) {
