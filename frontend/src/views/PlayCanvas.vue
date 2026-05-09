@@ -12,9 +12,31 @@
           <span class="round-label">回合</span>
           <span class="round-num">{{ currentRound }}/{{ totalRounds }}</span>
         </div>
+        <!-- Visual progress bar -->
+        <div class="progress-bar-container" :title="`第 ${currentRound} 轮，共 ${totalRounds} 轮`">
+          <div
+            class="progress-bar-fill"
+            :style="{ width: `${(currentRound / totalRounds) * 100}%` }"
+          ></div>
+          <div class="progress-dots">
+            <span
+              v-for="r in totalRounds"
+              :key="r"
+              class="progress-dot"
+              :class="{ completed: r < currentRound, current: r === currentRound }"
+            ></span>
+          </div>
+        </div>
         <!-- Turn order indicator for non-current players -->
         <div v-if="!isMyTurn" class="turn-order-badge">
-          <span class="turn-order-icon">📋</span>
+          <span class="turn-order-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+              <rect x="9" y="3" width="6" height="4" rx="1"/>
+              <line x1="9" y1="12" x2="15" y2="12"/>
+              <line x1="9" y1="16" x2="13" y2="16"/>
+            </svg>
+          </span>
           <span class="turn-order-text">第 {{ myPositionInQueue }} 位</span>
           <span class="turn-order-hint">· 还剩 {{ playersAheadInQueue }} 人</span>
         </div>
@@ -34,14 +56,32 @@
     <main class="game-main">
       <!-- Time warning banner -->
       <div v-if="isMyTurn && timeLeft <= 5" class="time-warning">
-        <span class="warning-icon">⏰</span>
+        <span class="warning-icon">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
         <span class="warning-text">时间快到了！</span>
       </div>
 
       <!-- Reconnection banner -->
       <div v-if="connectionState !== 'connected'" class="reconnect-banner">
-        <span v-if="connectionState === 'reconnecting'">🔄 重新连接中...</span>
-        <span v-else>⚠️ 连接已断开</span>
+        <span v-if="connectionState === 'reconnecting'">
+          <svg class="spin" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+          </svg>
+          重新连接中...
+        </span>
+        <span v-else>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          连接已断开
+        </span>
       </div>
 
       <!-- Turn indicator banner -->
@@ -55,9 +95,39 @@
         <span class="turn-text">轮到你了！快画吧～</span>
       </div>
 
+      <!-- First-turn guidance for new users -->
+      <div v-if="isMyTurn && isFirstTurn && !hasShownFirstTurnGuidance" class="first-turn-guidance">
+        <div class="guidance-content">
+          <span class="guidance-icon">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18h6"/>
+              <path d="M10 22h4"/>
+              <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>
+            </svg>
+          </span>
+          <div class="guidance-text">
+            <span class="guidance-title">第一次玩？</span>
+            <span class="guidance-desc">用画笔把上面的句子画出来，让下一位玩家猜猜看！</span>
+          </div>
+          <button class="guidance-close" @click="dismissFirstTurnGuidance" aria-label="关闭提示">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Mobile turn reminder - extra prominent for mobile users -->
       <div v-if="!isMyTurn && isMobile" class="mobile-turn-reminder">
-        <div class="reminder-icon">🎨</div>
+        <div class="reminder-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            <path d="M2 2l7.586 7.586"/>
+            <circle cx="11" cy="11" r="2"/>
+          </svg>
+        </div>
         <div class="reminder-text">
           <span class="reminder-title">等待 {{ currentPlayerName }} 画完</span>
           <span class="reminder-subtitle">轮到你时会有提示</span>
@@ -69,8 +139,21 @@
         <div class="speech-bubble">
           <span class="bubble-label">
             <template v-if="isMyTurn">
-              <span v-if="previousDrawing" class="label-interpret">🎨 画出来</span>
-              <span v-else class="label-original">🎯 原句</span>
+              <span v-if="previousDrawing" class="label-interpret">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                  <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                </svg>
+                画出来
+              </span>
+              <span v-else class="label-original">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <circle cx="12" cy="12" r="6"/>
+                  <circle cx="12" cy="12" r="2"/>
+                </svg>
+                原句
+              </span>
             </template>
             <template v-else>等待中...</template>
           </span>
@@ -107,7 +190,11 @@
       <!-- Interpretation bubble - shows what player is interpreting -->
       <div v-if="isMyTurn && previousDrawing" class="interpretation-bubble">
         <div class="bubble-header">
-          <span class="bubble-icon">💭</span>
+          <span class="bubble-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+          </span>
           <span class="bubble-title">你在画什么？</span>
         </div>
         <div class="bubble-content">
@@ -115,9 +202,17 @@
             <img :src="previousDrawing" alt="Previous drawing" />
           </div>
           <div class="bubble-hint">
-            <span class="hint-arrow">👆</span>
+            <span class="hint-arrow">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/>
+              </svg>
+            </span>
             <span>参考上面的画</span>
-            <span class="hint-arrow">👆</span>
+            <span class="hint-arrow">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7"/>
+              </svg>
+            </span>
           </div>
         </div>
       </div>
@@ -125,11 +220,45 @@
       <!-- Viewing area for non-current players (real-time view of current player's drawing) -->
       <div v-if="!isMyTurn" class="viewing-canvas-area">
         <div class="viewing-label">
-          <span class="viewing-icon">👀</span>
+          <span class="viewing-icon">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </span>
           <span>{{ currentPlayerName }} 正在画...</span>
         </div>
         <div class="viewing-canvas-frame">
-          <canvas ref="viewingCanvasRef" class="viewing-canvas"></canvas>
+          <!-- Skeleton placeholder when no drawing data yet -->
+          <div v-if="!previousDrawing" class="viewing-skeleton">
+            <div class="skeleton-card">
+              <div class="skeleton-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+                  <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+                  <path d="M2 2l7.586 7.586"/>
+                  <circle cx="11" cy="11" r="2"/>
+                </svg>
+              </div>
+              <div class="skeleton-text">
+                <span class="skeleton-title">等待 {{ currentPlayerName }} 画画中...</span>
+                <span class="skeleton-subtitle">请等待其他玩家画画</span>
+              </div>
+              <div class="skeleton-placeholder-lines">
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line short"></div>
+                <div class="skeleton-line medium"></div>
+              </div>
+            </div>
+            <div class="skeleton-corners">
+              <div class="corner corner-tl"></div>
+              <div class="corner corner-tr"></div>
+              <div class="corner corner-bl"></div>
+              <div class="corner corner-br"></div>
+            </div>
+          </div>
+          <!-- Actual canvas when drawing data exists -->
+          <canvas v-else ref="viewingCanvasRef" class="viewing-canvas"></canvas>
         </div>
       </div>
 
@@ -144,8 +273,6 @@
             @strokeEnd="handleStrokeEnd"
           />
         </div>
-        <div class="canvas-deco deco-left"></div>
-        <div class="canvas-deco deco-right"></div>
       </div>
 
       <!-- Toolbar -->
@@ -168,7 +295,7 @@
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
             </svg>
-            跳过 (-5分)
+            跳过本题
           </button>
           <button @click="submitDrawing" class="action-btn submit-btn">
             <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -180,18 +307,13 @@
       </div>
     </main>
 
-    <!-- Decorative doodles -->
-    <div class="doodle doodle-1">✏️</div>
-    <div class="doodle doodle-2">🎨</div>
-    <div class="doodle doodle-3">✨</div>
-
   </div>
 
   <!-- Custom Confirm Modal -->
   <ConfirmModal
     ref="confirmModalRef"
     title="跳过回合"
-    message="确定要跳过回合吗？将扣除5分！"
+    message="确定要跳过本题吗？"
     confirmText="确定跳过"
     cancelText="继续画"
     confirmClass="danger"
@@ -219,59 +341,61 @@ import ConfirmModal from '../components/ConfirmModal.vue';
 import { socket, connectionState } from '../socket/client.js';
 import { setGameResults, clearGameResults } from '../store/gameStore.js';
 import { showToast } from '../store/toastStore.js';
+import { useGameState } from '../composables/useGameState.js';
+import { useFirstTimeGuidance } from '../composables/useFirstTimeGuidance.js';
+import { useTimer } from '../composables/useTimer.js';
+import { useCanvasDrawing } from '../composables/useCanvasDrawing.js';
+import { useAudioFeedback } from '../composables/useAudioFeedback.js';
 
-// Audio context for timer beeps (lazy init)
-let audioContext = null;
-
-function playBeep(frequency = 800, duration = 100) {
-  try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'sine';
-    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + duration / 1000);
-  } catch (e) {
-    // Silently fail if audio not supported
-  }
-}
+// Audio feedback composable
+const { playBeep } = useAudioFeedback();
 
 const route = useRoute();
 const router = useRouter();
 const roomId = route.params.roomId;
 
-// Core game state
-const sentence = ref('');
-const isMyTurn = ref(false);
-const turnJustStarted = ref(false);
-const currentRound = ref(1);
-const totalRounds = ref(1);
-const currentPlayerName = ref('');
-const previousDrawing = ref(null);
-const timeLeft = ref(30);
-const timerInterval = ref(null);
-const timeWarningShown = ref(false);
+// Game state composable
+const {
+  sentence,
+  isMyTurn,
+  turnJustStarted,
+  currentRound,
+  totalRounds,
+  currentPlayerName,
+  previousDrawing,
+  players,
+  myPositionInQueue,
+  playersAheadInQueue,
+  setMyPlayerId,
+  setSentence,
+  setTurnData,
+  setPlayers,
+  addPlayer,
+  removePlayer,
+  triggerTurnFlash,
+  clearTurnData
+} = useGameState();
 
-// Canvas state
+// Timer composable
+const { timeLeft, timeWarningShown, startTimer, stopTimer } = useTimer(doSubmitDrawingAuto);
+
+// Canvas refs
 const gameCanvasRef = ref(null);
 const viewingCanvasRef = ref(null);
 const confirmModalRef = ref(null);
 const submitConfirmModalRef = ref(null);
-const currentTool = ref('pen');
-const currentColor = ref('#000000');
-const currentSize = ref(8);
 
-// Player state
-const players = ref([]);
-let myPlayerId = '';
-const playerName = route.query.name || localStorage.getItem('playerName') || '';
+// Canvas drawing composable
+const {
+  currentTool,
+  currentColor,
+  currentSize,
+  undoCount,
+  clearCanvas,
+  undoCanvas,
+  getImageData,
+  clearCanvasForNewTurn
+} = useCanvasDrawing(gameCanvasRef);
 
 // Mobile detection
 const windowWidth = ref(window.innerWidth);
@@ -282,97 +406,25 @@ onMounted(() => window.addEventListener('resize', handleResize));
 onUnmounted(() => window.removeEventListener('resize', handleResize));
 const isMobile = computed(() => windowWidth.value < 600);
 
-// Computed
-const currentPlayerPosition = computed(() => {
-  if (!currentPlayerName.value) return 1;
-  const idx = players.value.findIndex(p => p.name === currentPlayerName.value);
-  return idx === -1 ? 1 : idx + 1;
-});
+// First-turn guidance composable
+const { isFirstTurn, hasShownFirstTurnGuidance, dismissFirstTurnGuidance, markFirstTurnComplete } = useFirstTimeGuidance();
 
-// User's position in the turn queue
-const myPositionInQueue = computed(() => {
-  if (!myPlayerId || !currentPlayerName.value) return 1;
-  const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
-  const myIdx = players.value.findIndex(p => p.id === myPlayerId);
-  if (currentIdx === -1 || myIdx === -1) return 1;
+let myPlayerId = '';
+const playerName = route.query.name || localStorage.getItem('playerName') || '';
 
-  // Calculate how many players ahead of me (not including current)
-  let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
-  return ahead + 2; // +1 for "next is #1", +1 because we're counting from 1
-});
-
-const playersAheadInQueue = computed(() => {
-  if (!myPlayerId || !currentPlayerName.value) return players.value.length - 1;
-  const currentIdx = players.value.findIndex(p => p.name === currentPlayerName.value);
-  const myIdx = players.value.findIndex(p => p.id === myPlayerId);
-  if (currentIdx === -1 || myIdx === -1) return players.value.length - 1;
-
-  // Count players between current (exclusive) and me (exclusive)
-  let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
-  return ahead;
-});
-
-// Undo count from canvas
-const undoCount = computed(() => {
-  return gameCanvasRef.value?.undoCount ?? 0;
-});
-
-// Watch for turn changes to trigger flash effect
-watch(isMyTurn, (newVal, oldVal) => {
-  if (newVal && !oldVal) {
-    // Just became my turn - trigger flash
-    turnJustStarted.value = true;
-    setTimeout(() => {
-      turnJustStarted.value = false;
-    }, 1000);
+// Auto submit when time runs out
+function doSubmitDrawingAuto() {
+  showToast('时间到！自动提交您的画作', 'info');
+  if (!gameCanvasRef.value) {
+    showToast('画布未就绪，自动提交失败', 'error');
+    return;
   }
-});
-
-// Timer functions
-function startTimer() {
-  console.log('[startTimer] starting timer');
-  stopTimer();
-  timeLeft.value = 30;
-  timeWarningShown.value = false;
-  timerInterval.value = setInterval(() => {
-    console.log('[timer] tick, timeLeft:', timeLeft.value);
-    timeLeft.value--;
-    if (timeLeft.value === 5) {
-      playBeep(800, 150); // Higher beep at 5 seconds
-    } else if (timeLeft.value === 3) {
-      playBeep(600, 150); // Lower beep at 3 seconds
-    } else if (timeLeft.value === 1) {
-      playBeep(400, 200); // Even lower at 1 second
-    } else if (timeLeft.value === 0) {
-      playBeep(300, 500); // Final long beep at 0
-    }
-    if (timeLeft.value <= 5 && !timeWarningShown.value) {
-      // Show strong warning but don't auto-submit yet
-      timeWarningShown.value = true;
-    }
-    if (timeLeft.value <= 0) {
-      stopTimer();
-      showToast('时间到！自动提交您的画作', 'info');
-      if (!gameCanvasRef.value) {
-        showToast('画布未就绪，自动提交失败', 'error');
-        return;
-      }
-      const imageData = gameCanvasRef.value.getImageData();
-      if (!imageData) {
-        showToast('获取画布数据失败，自动提交失败', 'error');
-        return;
-      }
-      doSubmitDrawing(imageData);
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  if (timerInterval.value) {
-    console.log('[stopTimer] clearing interval');
-    clearInterval(timerInterval.value);
-    timerInterval.value = null;
+  const imageData = getImageData();
+  if (!imageData) {
+    showToast('获取画布数据失败，自动提交失败', 'error');
+    return;
   }
+  doSubmitDrawing(imageData);
 }
 
 // Handle stroke end - broadcast to others
@@ -382,16 +434,13 @@ function handleStrokeEnd({ imageData }) {
 
 // Submit drawing with confirmation
 async function submitDrawing() {
-  console.log('[submitDrawing] called, isMyTurn:', isMyTurn.value);
-  console.log('[submitDrawing] gameCanvasRef:', gameCanvasRef.value);
-
   // Validate canvas is ready
   if (!gameCanvasRef.value) {
     showToast('画布未就绪，请稍候', 'error');
     return;
   }
 
-  const imageData = gameCanvasRef.value.getImageData();
+  const imageData = getImageData();
   if (!imageData) {
     showToast('获取画布数据失败，请重试', 'error');
     return;
@@ -408,16 +457,8 @@ async function submitDrawing() {
 }
 
 function doSubmitDrawing(imageData) {
-  console.log('[doSubmitDrawing] emitting submit-drawing, imageData length:', imageData.length, 'roomId:', roomId);
+  markFirstTurnComplete();
   socket.emit('submit-drawing', { roomId, imageData });
-}
-
-function clearCanvas() {
-  gameCanvasRef.value?.clearCanvas();
-}
-
-function undoCanvas() {
-  gameCanvasRef.value?.undo();
 }
 
 async function confirmSkip() {
@@ -427,36 +468,7 @@ async function confirmSkip() {
   }
 }
 
-// Socket event handlers
-function handleYourSentence({ sentence: s }) {
-  sentence.value = s;
-}
-
-function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total }) {
-  console.log('[your-turn] received:', { round, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total, prevDrawing: !!prevDrawing });
-  currentRound.value = round;
-  if (total) totalRounds.value = total;
-  currentPlayerName.value = name || '';
-  previousDrawing.value = prevDrawing || null;
-
-  isMyTurn.value = myTurn;
-
-  if (myTurn) {
-    // My turn - clear my canvas (and show prev drawing as reference via interpretation bubble)
-    if (gameCanvasRef.value) {
-      gameCanvasRef.value.clearCanvas();
-    }
-    startTimer();
-  } else {
-    // Not my turn - stop timer, show viewing canvas with prev drawing
-    stopTimer();
-    // Draw the previous drawing on viewing canvas so everyone can see
-    if (prevDrawing && viewingCanvasRef.value) {
-      drawToViewingCanvas(prevDrawing);
-    }
-  }
-}
-
+// Draw to viewing canvas helper
 function drawToViewingCanvas(imageData) {
   const canvas = viewingCanvasRef.value;
   if (!canvas || !imageData) return;
@@ -464,7 +476,6 @@ function drawToViewingCanvas(imageData) {
   const ctx = canvas.getContext('2d');
   const img = new Image();
   img.onload = () => {
-    // Set canvas size to match image
     canvas.width = img.width;
     canvas.height = img.height;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -473,14 +484,30 @@ function drawToViewingCanvas(imageData) {
   img.src = imageData;
 }
 
+// Socket event handlers
+function handleYourSentence({ sentence: s }) {
+  setSentence(s);
+}
+
+function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total }) {
+  setTurnData({ round, previousDrawing: prevDrawing, currentPlayerName: name, isMyTurn: myTurn, totalRounds: total });
+
+  if (myTurn) {
+    clearCanvasForNewTurn();
+    startTimer();
+  } else {
+    stopTimer();
+    if (prevDrawing && viewingCanvasRef.value) {
+      drawToViewingCanvas(prevDrawing);
+    }
+  }
+}
+
 function handleNewRound({ round, totalRounds: total }) {
-  currentRound.value = round;
-  totalRounds.value = total;
   showToast(`第 ${round} 轮开始！`, 'info');
 }
 
 function handleDrawingUpdate({ imageData }) {
-  // Update the viewing canvas so everyone can see current player's drawing in real-time
   previousDrawing.value = imageData;
   if (viewingCanvasRef.value && !isMyTurn.value) {
     drawToViewingCanvas(imageData);
@@ -497,31 +524,23 @@ function handleGameEnded({ roomId: rid, results }) {
 
 function handleGameStarted({ roomId: rid }) {
   clearGameResults();
-  sentence.value = ''; // Clear any stale sentence
+  clearTurnData();
   router.push({ name: 'play', params: { roomId: rid } });
 }
 
 function handleRoomJoined({ room: r, playerId: pid, mySentence }) {
-  console.log('[room-joined] received:', { status: r.status, hasMySentence: !!mySentence, mySentence, sentencesKeys: Object.keys(r.sentences || {}) });
   myPlayerId = pid;
-  players.value = r.players || [];
+  setPlayers(r.players || []);
 
-  // Set sentence immediately from room-joined event, OR from room.sentences directly
-  const sentenceFromRoom = r.sentences?.[pid];
   if (mySentence) {
-    console.log('[room-joined] setting sentence from mySentence:', mySentence);
-    sentence.value = mySentence;
-  } else if (sentenceFromRoom) {
-    console.log('[room-joined] setting sentence from room.sentences:', sentenceFromRoom);
-    sentence.value = sentenceFromRoom;
-  } else {
-    console.log('[room-joined] no sentence available, will wait for your-sentence');
+    setSentence(mySentence);
+  } else if (r.sentences?.[pid]) {
+    setSentence(r.sentences[pid]);
   }
 
   if (r.status === 'ended') {
     router.push({ name: 'reveal', params: { roomId: r.roomId } });
   } else if (r.status === 'playing') {
-    // Game is in progress - set initial state
     const currentPlayer = r.players[r.currentPlayerIndex];
     currentPlayerName.value = currentPlayer ? currentPlayer.name : '';
     isMyTurn.value = currentPlayer && currentPlayer.id === myPlayerId;
@@ -529,9 +548,7 @@ function handleRoomJoined({ room: r, playerId: pid, mySentence }) {
 }
 
 function handleRoomUpdate({ room: r }) {
-  console.log('[room-update] received:', { status: r.status });
-  players.value = r.players || [];
-
+  setPlayers(r.players || []);
   if (r.status === 'playing') {
     const currentPlayer = r.players[r.currentPlayerIndex];
     currentPlayerName.value = currentPlayer ? currentPlayer.name : '';
@@ -540,33 +557,27 @@ function handleRoomUpdate({ room: r }) {
 }
 
 function handlePlayerJoined({ player }) {
-  if (!players.value.find(p => p.id === player.id)) {
-    players.value.push(player);
-  }
+  addPlayer(player);
 }
 
 function handlePlayerLeft({ playerId: pid }) {
-  players.value = players.value.filter(p => p.id !== pid);
+  removePlayer(pid);
 }
 
-function handleTurnSkipped({ skippedPlayerName, newCurrentPlayerName, playerId, playerName, penalty }) {
+function handleTurnSkipped({ skippedPlayerName, newCurrentPlayerName, playerName, penalty }) {
   if (playerName && penalty !== undefined) {
-    // Manual skip with penalty
     showToast(`${playerName} 跳过了回合 (-${penalty}分)`, 'info');
   } else if (skippedPlayerName && newCurrentPlayerName) {
-    // Disconnect skip
     showToast(`${skippedPlayerName} 掉线了，轮到 ${newCurrentPlayerName}`, 'info');
   }
 }
 
-// Reconnect handler - saved as reference for proper cleanup
 function handleReconnect() {
-  console.log('[PlayCanvas] reconnected, rejoining room');
   socket.emit('join-room', { roomId, playerName });
 }
 
 onMounted(() => {
-  // Register socket handlers FIRST
+  // Register socket handlers
   socket.on('room-joined', handleRoomJoined);
   socket.on('room-update', handleRoomUpdate);
   socket.on('player-joined', handlePlayerJoined);
@@ -580,24 +591,21 @@ onMounted(() => {
   socket.on('turn-skipped', handleTurnSkipped);
   socket.on('reconnect', handleReconnect);
 
-  // Debug: log socket connection state
-  console.log('[PlayCanvas onMounted] socket.connected:', socket.connected, 'socket.id:', socket.id);
+  // Browser history warning
+  window.addEventListener('beforeunload', handleBeforeUnload);
 
   // Connect if not connected and emit join-room when connected
   if (!socket.connected) {
-    console.log('[PlayCanvas] socket not connected, waiting for connect...');
     socket.once('connect', () => {
-      console.log('[PlayCanvas] socket connected, emitting join-room');
       socket.emit('join-room', { roomId, playerName });
     });
     socket.connect();
   } else {
-    console.log('[PlayCanvas] socket already connected, emitting join-room');
     socket.emit('join-room', { roomId, playerName });
   }
 });
 
-// Browser history warning - prevent accidental navigation during game
+// Browser history warning
 function handleBeforeUnload(e) {
   if (isMyTurn.value || timeLeft.value < 30) {
     e.preventDefault();
@@ -605,10 +613,6 @@ function handleBeforeUnload(e) {
     return e.returnValue;
   }
 }
-
-onMounted(() => {
-  window.addEventListener('beforeunload', handleBeforeUnload);
-});
 
 onUnmounted(() => {
   stopTimer();
@@ -698,6 +702,64 @@ onUnmounted(() => {
   font-weight: bold;
   color: var(--color-accent-purple);
   font-family: var(--font-display);
+}
+
+.progress-bar-container {
+  position: relative;
+  width: 120px;
+  height: 24px;
+  background: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+.progress-bar-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent-purple) 0%, var(--color-accent-yellow) 100%);
+  transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 10px 0 0 10px;
+}
+
+.progress-dots {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-around;
+  padding: 0 8px;
+  pointer-events: none;
+}
+
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ddd;
+  border: 1px solid #bbb;
+  transition: all 0.3s;
+}
+
+.progress-dot.completed {
+  background: var(--color-accent-purple);
+  border-color: var(--color-accent-purple);
+}
+
+.progress-dot.current {
+  background: var(--color-accent-red);
+  border-color: var(--color-accent-red);
+  animation: dotPulse 1s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
 }
 
 .turn-order-badge {
@@ -1084,6 +1146,138 @@ onUnmounted(() => {
   gap: 12px;
 }
 
+/* Skeleton placeholder for waiting players */
+.viewing-skeleton {
+  position: relative;
+  width: 100%;
+  min-height: 350px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #fefefe 0%, #faf5f0 50%, #fff8f0 100%);
+  padding: 24px;
+  overflow: hidden;
+}
+
+.skeleton-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 48px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 12px;
+  box-shadow: 6px 6px 0 var(--color-primary);
+  transform: rotate(-1deg);
+  z-index: 2;
+}
+
+.skeleton-icon svg {
+  animation: bounce 1.5s ease-in-out infinite;
+}
+
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.skeleton-title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--color-accent-purple);
+  text-shadow: 2px 2px 0 var(--color-accent-yellow);
+}
+
+.skeleton-subtitle {
+  font-size: 0.95rem;
+  color: #888;
+  font-family: var(--font-body);
+}
+
+.skeleton-placeholder-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 160px;
+  margin-top: 8px;
+}
+
+.skeleton-line {
+  height: 12px;
+  background: linear-gradient(90deg, #f0e6d3 0%, #e8dcc8 50%, #f0e6d3 100%);
+  background-size: 200% 100%;
+  border-radius: 6px;
+  border: 2px dashed #d4c4a8;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-line.short {
+  width: 60%;
+  align-self: flex-start;
+}
+
+.skeleton-line.medium {
+  width: 80%;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-corners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--color-accent-purple);
+  opacity: 0.4;
+}
+
+.corner-tl {
+  top: 12px;
+  left: 12px;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 8px 0 0 0;
+}
+
+.corner-tr {
+  top: 12px;
+  right: 12px;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 8px 0 0;
+}
+
+.corner-bl {
+  bottom: 12px;
+  left: 12px;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 8px;
+}
+
+.corner-br {
+  bottom: 12px;
+  right: 12px;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 8px 0;
+}
+
 .viewing-label {
   display: flex;
   align-items: center;
@@ -1138,27 +1332,6 @@ onUnmounted(() => {
   box-shadow: 6px 6px 0 var(--color-primary);
   overflow: hidden;
   background: white;
-}
-
-.canvas-deco {
-  position: absolute;
-  width: 30px;
-  height: 60px;
-  background: var(--color-accent-yellow);
-  border: 2px solid var(--color-primary);
-  border-radius: 4px;
-}
-
-.deco-left {
-  left: -20px;
-  top: 50%;
-  transform: translateY(-50%) rotate(-10deg);
-}
-
-.deco-right {
-  right: -20px;
-  top: 50%;
-  transform: translateY(-50%) rotate(10deg);
 }
 
 @keyframes slideUp {
@@ -1236,37 +1409,6 @@ onUnmounted(() => {
   width: 24px;
   height: 24px;
   stroke: white;
-}
-
-.doodle {
-  position: fixed;
-  font-size: 32px;
-  opacity: 0.6;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.doodle-1 {
-  top: 15%;
-  right: 8%;
-  animation: float 3s ease-in-out infinite;
-}
-
-.doodle-2 {
-  bottom: 20%;
-  left: 5%;
-  animation: float 4s ease-in-out infinite 0.5s;
-}
-
-.doodle-3 {
-  top: 60%;
-  right: 5%;
-  animation: float 3.5s ease-in-out infinite 1s;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(5deg); }
 }
 
 .turn-indicator {
@@ -1405,7 +1547,12 @@ onUnmounted(() => {
   .sentence-card,
   .timer-wrapper,
   .interpretation-bubble,
-  .hint-arrow {
+  .hint-arrow,
+  .first-turn-guidance,
+  .guidance-icon svg,
+  .reminder-icon svg,
+  .skeleton-icon svg,
+  .spin {
     animation: none;
   }
 
@@ -1417,11 +1564,26 @@ onUnmounted(() => {
   .turn-flash-leave-active {
     animation: none;
   }
+
+  .skeleton-icon,
+  .skeleton-line {
+    animation: none;
+  }
 }
 
 @media (max-width: 600px) {
   .play-canvas {
     padding: 12px;
+  }
+
+  .header-content {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .progress-bar-container {
+    width: 100px;
+    height: 20px;
   }
 
   .timer-wrapper {
@@ -1431,10 +1593,6 @@ onUnmounted(() => {
 
   .polaroid-image img {
     max-width: 200px;
-  }
-
-  .doodle {
-    display: none;
   }
 
   .mobile-turn-reminder {
@@ -1460,8 +1618,72 @@ onUnmounted(() => {
   animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.reminder-icon {
-  font-size: 2rem;
+/* First-turn guidance for new users */
+.first-turn-guidance {
+  width: 100%;
+  max-width: 400px;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+.guidance-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #fffef5 0%, #fff8e7 100%);
+  border: 3px dashed var(--color-accent-yellow);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-accent-yellow);
+}
+
+.guidance-icon {
+  flex-shrink: 0;
+}
+
+.guidance-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.guidance-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-accent-purple);
+}
+
+.guidance-desc {
+  font-size: 0.85rem;
+  color: #666;
+  font-family: var(--font-body);
+  line-height: 1.3;
+}
+
+.guidance-close {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 2px solid #ddd;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  color: #999;
+  transition: all 0.2s;
+}
+
+.guidance-close:hover {
+  background: var(--color-accent-red);
+  border-color: var(--color-accent-red);
+  color: white;
+}
+
+.reminder-icon svg {
   animation: bounce 1s ease-in-out infinite;
 }
 
@@ -1480,5 +1702,35 @@ onUnmounted(() => {
 .reminder-subtitle {
   font-size: 0.85rem;
   opacity: 0.9;
+}
+
+/* Spin animation for reconnect spinner */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* SVG icon sizing */
+.guidance-icon svg,
+.reminder-icon svg,
+.skeleton-icon svg,
+.turn-order-icon svg,
+.viewing-icon svg,
+.bubble-icon svg,
+.warning-icon svg {
+  display: block;
+}
+
+.guidance-icon svg {
+  animation: float 2s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 </style>
