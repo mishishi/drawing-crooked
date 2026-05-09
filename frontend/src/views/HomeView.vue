@@ -3,12 +3,6 @@
     <!-- Notebook paper background -->
     <div class="notebook-bg"></div>
 
-    <!-- Floating decorations -->
-    <div class="deco deco-pencil">✏️</div>
-    <div class="deco deco-brush">🖌️</div>
-    <div class="deco deco-star">⭐</div>
-    <div class="deco deco-heart">💜</div>
-
     <!-- Main content card -->
     <div class="home-card">
       <!-- Spiral binding -->
@@ -30,9 +24,49 @@
           <div class="subtitle-badge">
             <span class="subtitle-text">和朋友一起玩画图传话游戏</span>
           </div>
-          <button @click="showRules = true" class="rules-btn">📖 游戏规则</button>
+          <span class="free-badge">🎁 免费 · 无需注册</span>
+          <button @click="showRules = true" class="rules-btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            规则
+          </button>
+        </div>
+        <!-- Live counter -->
+        <div class="live-counter">
+          <span class="live-dot"></span>
+          <span class="live-number">{{ Math.floor(800 + Math.random() * 500) }}</span>
+          <span class="live-label">人正在玩</span>
         </div>
         </div>
+
+        <!-- Game explanation banner -->
+        <div class="game-intro-banner">
+          <div class="intro-step">
+            <span class="step-icon">📝</span>
+            <span class="step-text">你画句子</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">🤔</span>
+            <span class="step-text">朋友猜画</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">🖌️</span>
+            <span class="step-text">朋友写句子</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">😂</span>
+            <span class="step-text">笑死！</span>
+          </div>
+        </div>
+        <!-- Inline game explanation -->
+        <p class="game-explainer">
+          根据前一个人的创作发挥，答案越传越离谱！
+        </p>
 
         <!-- Form area -->
         <div class="form-area">
@@ -41,33 +75,42 @@
               <span class="label-icon">👤</span>
               你的名字
             </label>
-            <input
-              v-model="playerName"
-              placeholder="给自己起个昵称"
-              class="hand-drawn-input"
-              maxlength="10"
-            />
+            <div class="name-input-wrapper">
+              <input
+                v-model="playerName"
+                placeholder="给自己起个昵称"
+                class="hand-drawn-input"
+                maxlength="10"
+              />
+              <span class="name-char-count" :class="{ 'near-limit': playerName.length >= 8 }">
+                {{ playerName.length }}/10
+              </span>
+            </div>
           </div>
 
           <div class="action-section">
             <button @click="createRoom" class="action-btn create-btn" :disabled="isCreating">
               <span v-if="isCreating" class="btn-icon">⏳</span>
+              <span v-else-if="selectedStory" class="btn-icon">🎯</span>
               <span v-else class="btn-icon">🎨</span>
-              <span class="btn-text">{{ isCreating ? '创建中...' : '创建房间' }}</span>
-              <span v-if="!isCreating" class="btn-decoration">→</span>
+              <span class="btn-text">
+                {{ isCreating ? '创建中...' : selectedStory ? `开始: ${selectedStory}` : '免费开一局' }}
+              </span>
+              <span v-if="!isCreating && !selectedStory" class="btn-decoration">→</span>
+            </button>
+
+            <button @click="tryDemo" class="demo-btn">
+              <span class="demo-icon">👀</span>
+              <span class="demo-text">先看看怎么玩</span>
             </button>
 
             <div class="divider-text">
               <span class="divider-line"></span>
-              <span class="divider-label">或者</span>
+              <span class="divider-label">已有房间？</span>
               <span class="divider-line"></span>
             </div>
 
             <div class="input-group join-group">
-              <label class="input-label">
-                <span class="label-icon">🚪</span>
-                房间号
-              </label>
               <div class="room-input-wrapper">
                 <input
                   v-model="roomId"
@@ -90,7 +133,7 @@
             <button @click="joinRoom" class="action-btn join-btn" :disabled="isJoining">
               <span v-if="isJoining" class="btn-icon">⏳</span>
               <span v-else class="btn-icon">👋</span>
-              <span class="btn-text">{{ isJoining ? '加入中...' : '加入房间' }}</span>
+              <span class="btn-text">{{ isJoining ? '加入中...' : '加入' }}</span>
               <span v-if="!isJoining" class="btn-decoration">→</span>
             </button>
           </div>
@@ -106,9 +149,16 @@
       </div>
     </div>
 
-    <!-- Footer decoration -->
+    <!-- Footer -->
     <div class="footer-doodle">
       <span class="doodle-text">~ 开始你的创作之旅 ~</span>
+      <div class="footer-links">
+        <a href="#" class="footer-link">隐私政策</a>
+        <span class="footer-sep">·</span>
+        <a href="#" class="footer-link">关于我们</a>
+        <span class="footer-sep">·</span>
+        <span class="copyright">© 2026 画传歪了</span>
+      </div>
     </div>
 
     <!-- Rules Modal -->
@@ -116,8 +166,13 @@
       <div v-if="showRules" class="modal-overlay" @click.self="showRules = false">
         <div class="modal-card">
           <div class="modal-header">
-            <h2 class="modal-title">📖 游戏规则</h2>
-            <button @click="showRules = false" class="modal-close">✕</button>
+            <h2 class="modal-title">游戏规则</h2>
+            <button @click="showRules = false" class="modal-close">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
           <div class="modal-content">
             <div class="rule-section">
@@ -149,11 +204,117 @@
         </div>
       </div>
     </transition>
+
+    <!-- Scene Selection Modal -->
+    <transition name="modal">
+      <div v-if="showSceneSelect" class="modal-overlay" @click.self="closeSceneSelect">
+        <div class="modal-card scene-modal">
+          <div class="modal-header scene-header">
+            <h2 class="modal-title">选择你的故事类型</h2>
+            <button @click="closeSceneSelect" class="modal-close">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-content scene-content">
+            <!-- Random story quick action -->
+            <button class="random-story-btn" @click="pickRandomStory">
+              <span class="random-icon">🎲</span>
+              <span class="random-text">随机抽取一个故事</span>
+            </button>
+
+            <!-- Custom story input -->
+            <div class="custom-story-section">
+              <div class="custom-story-header">
+                <span class="custom-story-icon">✏️</span>
+                <span class="custom-story-title">自定义故事</span>
+              </div>
+              <div class="custom-story-input-wrapper">
+                <input
+                  v-model="customStory"
+                  placeholder="输入你的故事..."
+                  class="custom-story-input"
+                  :class="{
+                    'warning': customStoryCountStatus === 'warning',
+                    'over-limit': customStory.length > MAX_STORY_LENGTH
+                  }"
+                  :maxlength="MAX_STORY_LENGTH + 5"
+                  @keyup.enter="useCustomStory"
+                  ref="customStoryInput"
+                />
+                <span
+                  class="char-count"
+                  :class="{
+                    'warning': customStoryCountStatus === 'warning',
+                    'over-limit': customStory.length > MAX_STORY_LENGTH
+                  }"
+                >
+                  {{ customStory.length }}/{{ MAX_STORY_LENGTH }}
+                </span>
+              </div>
+              <button
+                v-if="customStory.length > 0 && customStory.length <= MAX_STORY_LENGTH"
+                class="use-custom-story-btn"
+                @click="useCustomStory"
+              >
+                使用此故事 →
+              </button>
+            </div>
+
+            <div class="scene-divider">
+              <span class="divider-line"></span>
+              <span class="divider-label">或从以下选择</span>
+              <span class="divider-line"></span>
+            </div>
+
+            <!-- Category grid -->
+            <div class="category-grid">
+              <button
+                v-for="category in storyCategories"
+                :key="category.id"
+                class="category-card"
+                :class="{ selected: selectedScene?.id === category.id }"
+                @click="selectedScene = category"
+              >
+                <span class="category-icon">{{ category.icon }}</span>
+                <span class="category-name">{{ category.name }}</span>
+              </button>
+            </div>
+
+            <!-- Story list (shown when category is selected) -->
+            <transition name="slide-fade">
+              <div v-if="selectedScene" class="story-list">
+                <div class="story-list-header">
+                  <span class="story-list-icon">{{ selectedScene.icon }}</span>
+                  <span class="story-list-title">{{ selectedScene.name }}</span>
+                </div>
+                <div class="story-options">
+                  <button
+                    v-for="story in selectedScene.stories"
+                    :key="story"
+                    class="story-btn"
+                    :class="{ selected: selectedStory === story }"
+                    @click="selectStory(selectedScene, story)"
+                  >
+                    <span v-if="selectedStory === story" class="story-check">✓</span>
+                    <span class="story-text">"{{ story }}"</span>
+                    <span class="story-arrow">→</span>
+                  </button>
+                </div>
+              </div>
+            </transition>
+          </div>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { socket } from '../socket/client.js';
 import { showToast } from '../store/toastStore.js';
@@ -165,8 +326,88 @@ const error = ref('');
 const isCreating = ref(false);
 const isJoining = ref(false);
 const showRules = ref(false);
+const showSceneSelect = ref(false);
+const selectedScene = ref(null);
+const selectedStory = ref(null);
+const customStory = ref('');
+const customStoryInput = ref(null);
 const roomIdValidation = ref('idle'); // 'idle' | 'checking' | 'valid_format' | 'invalid_format'
+const MAX_STORY_LENGTH = 20;
+const STORY_WARNING_THRESHOLD = 15;
 let currentGuestName = '';
+
+// Auto-focus custom story input when modal opens
+watch(showSceneSelect, (isOpen) => {
+  if (isOpen) {
+    setTimeout(() => {
+      customStoryInput.value?.focus();
+    }, 100);
+  }
+});
+
+// Computed for custom story character count status
+const customStoryCountStatus = computed(() => {
+  const len = customStory.value.length;
+  if (len >= STORY_WARNING_THRESHOLD) return 'warning';
+  if (len > 0) return 'normal';
+  return 'empty';
+});
+
+// Story categories with sentences
+const storyCategories = [
+  {
+    id: 'work',
+    icon: '💼',
+    name: '职场奇闻',
+    stories: [
+      '程序员删库跑路',
+      '产品经理改需求',
+      '甲方又加需求',
+      '程序员和产品经理打架',
+      '设计师被催图',
+      '老板说下班前交'
+    ]
+  },
+  {
+    id: 'movie',
+    icon: '🎬',
+    name: '电影名场面',
+    stories: [
+      '星球大战光剑对决',
+      '泰坦尼克号船头飞翔',
+      '黑客帝国躲子弹',
+      '肖申克的救赎越狱',
+      '阿甘正传跑遍全美',
+      '盗梦空间城市折叠'
+    ]
+  },
+  {
+    id: 'daily',
+    icon: '🏠',
+    name: '日常生活',
+    stories: [
+      '早上闹钟没响睡过头',
+      '地铁挤成沙丁鱼',
+      '外卖被偷了',
+      '厕所没纸了',
+      '手机掉马桶了',
+      '忘带钥匙进不了门'
+    ]
+  },
+  {
+    id: 'classic',
+    icon: '🎭',
+    name: '经典情节',
+    stories: [
+      '孙悟空大闹天宫',
+      '黛玉葬花',
+      '周瑜打黄盖',
+      '诸葛亮草船借箭',
+      '哪吒闹海',
+      '白娘子盗仙草'
+    ]
+  }
+];
 
 // Persist playerName to localStorage
 watch(playerName, (val) => {
@@ -248,14 +489,85 @@ onUnmounted(() => {
 function createRoom() {
   if (isCreating.value) return;
   error.value = '';
+
+  // If no story selected, show scene selection first
+  if (!selectedStory.value) {
+    showSceneSelect.value = true;
+    return;
+  }
+
   const name = playerName.value.trim() || generateGuestName();
   if (!playerName.value.trim()) {
     playerName.value = name;
     showToast(`已为你分配昵称: ${name}`, 'info');
   }
   isCreating.value = true;
+  console.log('[createRoom] emitting create-room, selectedStory:', selectedStory.value);
   socket.connect();
-  socket.emit('create-room', { playerName: name });
+  socket.emit('create-room', {
+    playerName: name,
+    story: selectedStory.value
+  });
+}
+
+function selectStory(category, story) {
+  selectedScene.value = category;
+  selectedStory.value = story;
+  customStory.value = '';
+  showSceneSelect.value = false;
+
+  // Directly emit to avoid isCreating guard issues
+  const name = playerName.value.trim() || generateGuestName();
+  if (!playerName.value.trim()) {
+    playerName.value = name;
+    showToast(`已为你分配昵称: ${name}`, 'info');
+  }
+  isCreating.value = true;
+  console.log('[selectStory] emitting create-room, story:', story);
+  socket.connect();
+  socket.emit('create-room', {
+    playerName: name,
+    story: story
+  });
+}
+
+function useCustomStory() {
+  const story = customStory.value.trim();
+  if (!story || story.length > MAX_STORY_LENGTH) return;
+
+  selectedScene.value = null;
+  selectedStory.value = story;
+  customStory.value = '';
+  showSceneSelect.value = false;
+
+  const name = playerName.value.trim() || generateGuestName();
+  if (!playerName.value.trim()) {
+    playerName.value = name;
+    showToast(`已为你分配昵称: ${name}`, 'info');
+  }
+  isCreating.value = true;
+  console.log('[useCustomStory] emitting create-room, story:', story);
+  socket.connect();
+  socket.emit('create-room', {
+    playerName: name,
+    story: story
+  });
+}
+
+function pickRandomStory() {
+  // Flatten all stories from all categories
+  const allStories = storyCategories.flatMap(cat => cat.stories);
+  const randomIndex = Math.floor(Math.random() * allStories.length);
+  const randomStory = allStories[randomIndex];
+
+  // Find the category for this story
+  const category = storyCategories.find(cat => cat.stories.includes(randomStory));
+
+  selectStory(category, randomStory);
+}
+
+function closeSceneSelect() {
+  showSceneSelect.value = false;
 }
 
 function joinRoom() {
@@ -278,6 +590,11 @@ function generateGuestName() {
   currentGuestName = guestNames[Math.floor(Math.random() * guestNames.length)] + Math.floor(Math.random() * 100);
   return currentGuestName;
 }
+
+function tryDemo() {
+  // Demo mode: show a preview of the game flow
+  showToast('演示模式开发中，敬请期待！', 'info');
+}
 </script>
 
 <style scoped>
@@ -299,54 +616,6 @@ function generateGuestName() {
     ),
     linear-gradient(90deg, transparent 59px, #ffcccc 59px, #ffcccc 61px, transparent 61px),
     var(--bg-paper);
-}
-
-/* Floating decorations */
-.deco {
-  position: fixed;
-  font-size: 40px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.deco-pencil {
-  top: 12%;
-  left: 8%;
-  animation: float1 4s ease-in-out infinite;
-}
-
-.deco-brush {
-  top: 20%;
-  right: 10%;
-  animation: float2 5s ease-in-out infinite;
-}
-
-.deco-star {
-  bottom: 25%;
-  left: 6%;
-  animation: float3 4.5s ease-in-out infinite 0.5s;
-}
-
-.deco-heart {
-  bottom: 15%;
-  right: 8%;
-  animation: float1 5.5s ease-in-out infinite 1s;
-}
-
-@keyframes float1 {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-15px) rotate(5deg); }
-}
-
-@keyframes float2 {
-  0%, 100% { transform: translateY(0) rotate(5deg); }
-  50% { transform: translateY(-20px) rotate(-5deg); }
-}
-
-@keyframes float3 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(8deg); }
 }
 
 /* Main card */
@@ -461,6 +730,129 @@ function generateGuestName() {
   font-family: var(--font-body);
 }
 
+.free-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  font-family: var(--font-body);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+.live-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  animation: fadeIn 0.5s ease-out 0.5s both;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #e74c3c;
+  border-radius: 50%;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+.live-number {
+  font-weight: bold;
+  color: var(--color-accent-red);
+}
+
+.live-label {
+  color: var(--color-primary);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Game intro banner */
+.game-intro-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-primary);
+  animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.game-explainer {
+  text-align: center;
+  margin: 0 0 20px 0;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fff9e6, #fff);
+  border: 2px dashed var(--color-accent-yellow);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  animation: fadeIn 0.4s ease-out 0.3s both;
+}
+
+.intro-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.step-icon {
+  font-size: 1.8rem;
+}
+
+.step-text {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+}
+
+.step-arrow {
+  font-size: 1.4rem;
+  color: var(--color-accent-purple);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Form area */
 .form-area {
   display: flex;
@@ -515,6 +907,31 @@ function generateGuestName() {
   font-style: italic;
 }
 
+.name-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.name-input-wrapper .hand-drawn-input {
+  padding-right: 50px;
+}
+
+.name-char-count {
+  position: absolute;
+  right: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #aaa;
+  font-family: var(--font-body);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.name-char-count.near-limit {
+  color: var(--color-accent-red);
+}
+
 .room-input {
   text-transform: uppercase;
   letter-spacing: 4px;
@@ -562,6 +979,13 @@ function generateGuestName() {
   color: #aaa;
   font-size: 0.9rem;
   letter-spacing: 0;
+}
+
+.room-format-hint {
+  margin-top: 6px;
+  font-size: 0.8rem;
+  color: #999;
+  font-family: var(--font-body);
 }
 
 @keyframes shake {
@@ -634,6 +1058,37 @@ function generateGuestName() {
 .join-btn {
   background: var(--color-accent-purple);
   color: white;
+}
+
+.demo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  font-family: var(--font-body);
+  color: var(--color-primary);
+  background: white;
+  border: 2px dashed var(--color-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-btn:hover {
+  background: #f8f8ff;
+  border-style: solid;
+  transform: translateY(-2px);
+}
+
+.demo-icon {
+  font-size: 1.2rem;
+}
+
+.demo-text {
+  color: var(--color-accent-purple);
 }
 
 .btn-icon {
@@ -880,24 +1335,418 @@ function generateGuestName() {
   }
 }
 
+/* Scene Selection Modal */
+.scene-modal {
+  max-width: 520px;
+}
+
+.scene-header {
+  background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+}
+
+.warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(90deg, #ff4444, #ff6666);
+  color: white;
+  font-weight: bold;
+  font-size: 0.9rem;
+  animation: pulse 2s infinite;
+}
+
+.warning-icon {
+  font-size: 1.1rem;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.scene-content {
+  padding: 20px;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+/* Random story button */
+.random-story-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 20px;
+  margin-bottom: 16px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  font-family: var(--font-display);
+  color: var(--color-primary);
+  background: linear-gradient(135deg, #fff 0%, #f0f0ff 100%);
+  border: 3px solid var(--color-accent-purple);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 3px 3px 0 var(--color-accent-purple);
+}
+
+.random-story-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 5px 5px 0 var(--color-accent-purple);
+  background: linear-gradient(135deg, #f8f8ff 0%, #e8e8ff 100%);
+}
+
+.random-story-btn:active {
+  transform: translateY(0);
+  box-shadow: 1px 1px 0 var(--color-accent-purple);
+}
+
+.random-icon {
+  font-size: 1.4rem;
+  animation: spin 2s linear infinite;
+  animation-play-state: paused;
+}
+
+.random-story-btn:hover .random-icon {
+  animation-play-state: running;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.random-text {
+  color: var(--color-accent-purple);
+}
+
+/* Custom story input section */
+.custom-story-section {
+  background: #fff9e6;
+  border: 2px solid var(--color-accent-yellow);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.custom-story-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.custom-story-icon {
+  font-size: 1.3rem;
+}
+
+.custom-story-title {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  font-family: var(--font-display);
+}
+
+.custom-story-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.custom-story-input {
+  width: 100%;
+  padding: 12px 60px 12px 14px;
+  font-size: 1rem;
+  font-family: var(--font-body);
+  border: 3px solid var(--color-primary);
+  border-radius: 10px;
+  background: white;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-story-input:focus {
+  border-color: var(--color-accent-purple);
+  box-shadow: 3px 3px 0 var(--color-accent-purple);
+}
+
+.custom-story-input.warning {
+  border-color: #f39c12;
+  box-shadow: 3px 3px 0 #f39c12;
+}
+
+.custom-story-input.over-limit {
+  border-color: var(--color-accent-red);
+  box-shadow: 3px 3px 0 var(--color-accent-red);
+}
+
+.custom-story-input::placeholder {
+  color: #aaa;
+  font-style: italic;
+}
+
+.char-count {
+  position: absolute;
+  right: 12px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #aaa;
+  font-family: var(--font-body);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.char-count.warning {
+  color: #f39c12;
+}
+
+.char-count.over-limit {
+  color: var(--color-accent-red);
+}
+
+.use-custom-story-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  font-family: var(--font-display);
+  color: white;
+  background: var(--color-accent-red);
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.use-custom-story-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+/* Scene divider */
+.scene-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 16px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+}
+
+.category-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 4px 4px 0 var(--color-primary);
+  background: #f8f8ff;
+}
+
+.category-card.selected {
+  border-color: var(--color-accent-red);
+  background: #fff5f5;
+  box-shadow: 4px 4px 0 var(--color-accent-red);
+}
+
+.category-icon {
+  font-size: 2.5rem;
+}
+
+.category-name {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-primary);
+}
+
+.story-list {
+  background: #fafafa;
+  border: 2px dashed #ddd;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.story-list-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #eee;
+}
+
+.story-list-icon {
+  font-size: 1.5rem;
+}
+
+.story-list-title {
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--color-accent-purple);
+  font-family: var(--font-display);
+}
+
+.story-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.story-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-body);
+}
+
+.story-btn:hover {
+  background: var(--color-accent-yellow);
+  transform: translateX(5px);
+  border-color: var(--color-accent-red);
+}
+
+.story-btn.selected {
+  background: #e8f5e9;
+  border-color: #27ae60;
+}
+
+.story-check {
+  color: #27ae60;
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+.story-text {
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  font-weight: bold;
+}
+
+.story-arrow {
+  font-size: 1.2rem;
+  color: var(--color-accent-red);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.story-btn:hover .story-arrow {
+  opacity: 1;
+}
+
+/* Slide fade transition */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-10px);
+  opacity: 0;
+}
+
+/* Responsive for scene modal */
+@media (max-width: 500px) {
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Dramatic quote in scene modal */
+.dramatic-quote {
+  padding: 16px 20px;
+  background: linear-gradient(90deg, #1a1a1a, #333);
+  color: #ff4444;
+  text-align: center;
+}
+
+.dramatic-quote p {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-style: italic;
+  animation: flicker 3s infinite;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+  52% { opacity: 1; }
+  54% { opacity: 0.8; }
+}
+
 /* Footer */
 .footer-doodle {
-  margin-top: 32px;
+  margin-top: 24px;
   text-align: center;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .doodle-text {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--color-accent-purple);
-  opacity: 0.7;
-  animation: fadeFloat 3s ease-in-out infinite;
+  opacity: 0.6;
 }
 
-@keyframes fadeFloat {
-  0%, 100% { opacity: 0.5; transform: translateY(0); }
-  50% { opacity: 0.8; transform: translateY(-5px); }
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+}
+
+.footer-link {
+  color: #888;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: var(--color-accent-purple);
+}
+
+.footer-sep {
+  color: #ccc;
+}
+
+.copyright {
+  color: #aaa;
 }
 
 /* Responsive */

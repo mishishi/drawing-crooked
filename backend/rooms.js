@@ -5,17 +5,23 @@ const sentences = require('./sentences.json');
 
 export const rooms = new Map();
 
-export function createRoom(roomId, ownerId, ownerName) {
+export function createRoom(roomId, ownerId, ownerName, selectedStory = null) {
+  // 确保selectedStory是字符串或null，不要undefined
+  const story = (selectedStory === undefined) ? null : selectedStory;
+  console.log('[createRoom] called with:', { roomId, ownerId, ownerName, selectedStory: story, typeof: typeof story });
   const room = {
     roomId,
     players: [{ id: ownerId, name: ownerName, ready: false }],
     owner: ownerId,
     status: 'waiting',
+    selectedStory: story,
     currentRound: 0,
     totalRounds: 0,
     sentences: {},
     drawings: [],
-    currentPlayerIndex: 0
+    currentPlayerIndex: 0,
+    playerScores: {}, // { playerId: totalScore }
+    roundScores: []   // [{ round, scores }]
   };
   rooms.set(roomId, room);
   return room;
@@ -55,16 +61,23 @@ export function transferOwner(roomId) {
 export function resetRoomForNewGame(roomId) {
   const room = rooms.get(roomId);
   if (!room) return null;
+  // Preserve selectedStory when resetting
+  const preservedStory = room.selectedStory;
   room.status = 'waiting';
   room.currentRound = 0;
   room.totalRounds = 0;
   room.sentences = {};
   room.drawings = [];
   room.currentPlayerIndex = 0;
+  room.playerScores = {};
+  room.roundScores = [];
+  // Restore selectedStory after reset
+  room.selectedStory = preservedStory;
   // Reset player ready states
   room.players.forEach(p => {
     p.ready = false;
   });
+  console.log('[resetRoomForNewGame] preserved selectedStory:', room.selectedStory);
   return room;
 }
 
@@ -93,11 +106,40 @@ export function startGame(roomId, io) {
   if (!room) return null;
 
   room.status = 'playing';
-  room.totalRounds = 1; // One round: each player draws once in sequence
+  room.totalRounds = 3; // 3 rounds
   room.currentRound = 1;
   room.currentPlayerIndex = 0;
-  room.sentences = assignSentences(room.players);
   room.drawings = [];
+
+  // Use selected story if available, otherwise use random sentences
+  console.log('[startGame] ========== STARTING GAME ==========');
+  console.log('[startGame] roomId:', roomId);
+  console.log('[startGame] selectedStory:', room.selectedStory, '(type:', typeof room.selectedStory, ', isFalsy:', !room.selectedStory, ')');
+  console.log('[startGame] players:', room.players.map(p => ({ name: p.name, id: p.id })));
+
+  // Determine which sentence to use
+  let sentenceToUse = null;
+  if (room.selectedStory && typeof room.selectedStory === 'string' && room.selectedStory.trim().length > 0) {
+    sentenceToUse = room.selectedStory.trim();
+    console.log('[startGame] USING selectedStory:', sentenceToUse);
+  } else {
+    console.log('[startGame] BUG: selectedStory is invalid, checking room.sentences...');
+    console.log('[startGame] room.sentences:', room.sentences);
+    sentenceToUse = Object.values(room.sentences)[0] || null;
+    if (sentenceToUse) {
+      console.log('[startGame] Recovered sentence from room.sentences:', sentenceToUse);
+    }
+  }
+
+  // Assign sentences to all players
+  if (sentenceToUse) {
+    room.players.forEach(p => {
+      room.sentences[p.id] = sentenceToUse;
+    });
+  } else {
+    console.log('[startGame] CRITICAL BUG: No sentence available, using random!');
+    room.sentences = assignSentences(room.players);
+  }
 
   // Send each player their sentence
   room.players.forEach(p => {
@@ -147,6 +189,38 @@ export function submitDrawing(roomId, playerId, imageData) {
   });
 
   console.log('[submitDrawing] saved drawing for round', room.currentRound, 'playerIndex:', room.currentPlayerIndex, 'total drawings:', room.drawings.length);
+  return room;
+}
+
+export function skipTurn(roomId, playerId) {
+  const room = getRoom(roomId);
+  if (!room) return null;
+
+  const currentPlayer = room.players[room.currentPlayerIndex];
+  if (!currentPlayer || currentPlayer.id !== playerId) return null;
+
+  // Determine what sentence this drawer saw
+  const sentence = room.drawings.length === 0
+    ? room.sentences[playerId]
+    : room.sentences[room.drawings[room.drawings.length - 1].from];
+
+  // Determine who this drawing goes to (next player)
+  const toPlayer = room.players[(room.currentPlayerIndex + 1) % room.players.length];
+
+  // Add a placeholder drawing indicating skip
+  room.drawings.push({
+    from: playerId,
+    sentence: sentence,
+    to: toPlayer.id,
+    imageData: null, // null indicates skipped
+    round: room.currentRound,
+    playerIndex: room.currentPlayerIndex,
+    skipped: true
+  });
+
+  // Apply penalty
+  room.playerScores[playerId] = (room.playerScores[playerId] || 0) - 5;
+
   return room;
 }
 
@@ -200,11 +274,11 @@ export function startNewRound(roomId, io) {
   // Get last drawing from previous round BEFORE clearing
   const lastDrawing = getLastDrawing(room);
 
-  // Reassign sentences for new round
-  room.sentences = assignSentences(room.players);
+  // Do NOT reassign sentences - chain must continue with original story
+  // Just clear drawings for new round
   room.drawings = [];
 
-  // Send each player their new sentence
+  // Send each player their original sentence
   room.players.forEach(p => {
     io.to(p.id).emit('your-sentence', { sentence: room.sentences[p.id] });
   });

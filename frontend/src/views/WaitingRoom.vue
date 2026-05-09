@@ -1,20 +1,33 @@
 <template>
   <div class="waiting-room">
-    <!-- Disconnected overlay -->
-    <div v-if="isDisconnected" class="disconnected-overlay">
-      <div class="disconnected-message">
-        <span class="disconnected-icon">📡</span>
-        <span>连接中断，正在重连...</span>
+    <!-- Connection overlay -->
+    <div v-if="connectionState !== 'connected'" class="connection-overlay">
+      <div class="connection-message" :class="connectionState">
+        <span v-if="connectionState === 'reconnecting'" class="connection-icon spinning">🔄</span>
+        <span v-else class="connection-icon">📡</span>
+        <span v-if="connectionState === 'reconnecting'" class="connection-text">正在重新连接...</span>
+        <span v-else class="connection-text">连接已断开</span>
+        <div v-if="connectionState === 'reconnecting'" class="reconnect-progress">
+          <div class="reconnect-dot"></div>
+          <div class="reconnect-dot"></div>
+          <div class="reconnect-dot"></div>
+        </div>
       </div>
     </div>
 
     <!-- Notebook paper background -->
     <div class="notebook-bg"></div>
 
-    <!-- Floating decorations -->
-    <div class="deco deco-1">📝</div>
-    <div class="deco deco-2">🎮</div>
-    <div class="deco deco-3">✨</div>
+    <!-- Intro card -->
+    <div class="intro-card">
+      <div class="intro-text">
+        <span class="intro-icon">🎯</span>
+        <span>游戏规则：每人画一句，链条越长越歪！</span>
+      </div>
+      <div class="intro-count">
+        <span>👀 {{ players.length }}人已就位{{ players.length < 2 ? '，等待最后' + (2 - players.length) + '人...' : '!' }}</span>
+      </div>
+    </div>
 
     <!-- Main content -->
     <div class="waiting-content">
@@ -32,9 +45,46 @@
                 <span v-else>✓</span>
               </button>
             </div>
-            <button @click="shareRoom" class="share-btn">
-              <span>🔗</span> 分享邀请链接
+            <!-- Share panel toggle -->
+            <button @click="showSharePanel = !showSharePanel" class="share-btn">
+              <span>🔗</span> 邀请朋友
             </button>
+            <!-- Share panel dropdown -->
+            <transition name="share-panel">
+              <div v-if="showSharePanel" class="share-panel">
+                <div class="share-panel-header">邀请好友加入</div>
+                <div class="share-link-row">
+                  <input readonly :value="shareUrl" class="share-link-input" />
+                  <button @click="copyShareLink" class="copy-link-btn" :class="{ copied: linkCopied }">
+                    {{ linkCopied ? '已复制' : '复制' }}
+                  </button>
+                </div>
+                <div class="share-actions">
+                  <button @click="shareViaSMS" class="share-action-btn sms">
+                    <span class="action-icon">💬</span>
+                    <span class="action-text">短信</span>
+                  </button>
+                  <button @click="shareViaQQ" class="share-action-btn qq">
+                    <span class="action-icon">🐧</span>
+                    <span class="action-text">QQ</span>
+                  </button>
+                  <button @click="shareViaWeChat" class="share-action-btn wechat">
+                    <span class="action-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                      </svg>
+                    </span>
+                    <span class="action-text">复制链接</span>
+                  </button>
+                </div>
+                <div class="share-hint">复制链接后发送给朋友即可加入</div>
+              </div>
+            </transition>
+          </div>
+          <div v-if="isRandomMode" class="random-story-badge">
+            <span class="badge-icon">🎲</span>
+            <span>随机故事模式</span>
           </div>
         </div>
       </header>
@@ -45,6 +95,11 @@
           <span class="card-icon">👥</span>
           <h2>玩家列表</h2>
           <span class="player-count-badge">{{ players.length }}人</span>
+        </div>
+
+        <div class="min-players-hint">
+          <span class="hint-icon">💡</span>
+          <span class="hint-text">至少需要2位玩家才能开始游戏</span>
         </div>
 
         <transition-group name="player" tag="ul" class="player-list">
@@ -64,15 +119,36 @@
               </span>
             </div>
             <div class="ready-indicator" :class="{ ready: player.ready }">
-              <span class="ready-icon">{{ player.ready ? '✓' : '○' }}</span>
+              <span class="ready-icon">{{ player.ready ? '✓' : '⏱' }}</span>
               <span class="ready-text">{{ player.ready ? '已准备' : '等待中' }}</span>
             </div>
+          </li>
+          <li v-if="players.length === 0" key="empty" class="player-empty">
+            <span class="empty-icon">🎭</span>
+            <span class="empty-text">等待玩家加入...</span>
           </li>
         </transition-group>
 
         <div v-if="players.length > 5" class="scroll-hint">
           <span>向下滚动查看更多</span>
           <span class="scroll-arrow">↓</span>
+        </div>
+      </div>
+
+      <!-- Unprepared players warning -->
+      <div v-if="unpreparedPlayers.length > 0 && players.length >= 2" class="unprepared-card">
+        <div class="unprepared-header">
+          <span class="unprepared-icon">🎯</span>
+          <span class="unprepared-title">等待以下玩家准备</span>
+        </div>
+        <div class="unprepared-list">
+          <span
+            v-for="player in unpreparedPlayers"
+            :key="player.id"
+            class="unprepared-badge"
+          >
+            {{ player.name }}
+          </span>
         </div>
       </div>
 
@@ -91,11 +167,12 @@
           v-if="isOwner"
           @click="startGame"
           class="action-btn start-btn"
-          :disabled="!canStart"
+          :class="{ loading: isStarting }"
+          :disabled="!canStart || isStarting"
         >
-          <span class="btn-icon">🚀</span>
-          <span class="btn-text">开始游戏</span>
-          <span class="btn-arrow">→</span>
+          <span class="btn-icon">{{ isStarting ? '↻' : '🚀' }}</span>
+          <span class="btn-text">{{ isStarting ? '开始中...' : '开始游戏' }}</span>
+          <span v-if="!isStarting" class="btn-arrow">→</span>
         </button>
       </div>
 
@@ -133,7 +210,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { socket } from '../socket/client.js';
+import { socket, connectionState } from '../socket/client.js';
 import { showToast } from '../store/toastStore.js';
 
 const route = useRoute();
@@ -143,7 +220,6 @@ const playerName = route.query.name || '';
 const playerId = ref('');
 const room = ref({ players: [] });
 const ownerId = ref('');
-const isDisconnected = ref(false);
 
 const passedRoom = route.query.room ? JSON.parse(route.query.room) : null;
 if (passedRoom) {
@@ -154,6 +230,12 @@ if (passedRoom) {
 
 const codeCopied = ref(false);
 const linkCopied = ref(false);
+const isStarting = ref(false);
+const showSharePanel = ref(false);
+
+const shareUrl = computed(() => {
+  return `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}`;
+});
 
 const isOwner = computed(() => playerId.value === ownerId.value);
 
@@ -166,11 +248,17 @@ const allReady = computed(() => {
   return room.value.players.length >= 2 && room.value.players.every(p => p.ready);
 });
 
+const unpreparedPlayers = computed(() => {
+  return room.value.players.filter(p => !p.ready);
+});
+
 const canStart = computed(() => {
   return room.value.players.length >= 2 && room.value.players.every(p => p.ready);
 });
 
 const players = computed(() => room.value.players || []);
+
+const isRandomMode = computed(() => room.value.selectedStory === null || room.value.selectedStory === undefined);
 
 function getAvatarEmoji(index) {
   const avatars = ['🧑', '👩', '👨', '🧔', '👵', '👴', '🧑‍🎤', '👩‍🎨'];
@@ -182,7 +270,9 @@ function toggleReady() {
 }
 
 function startGame() {
+  isStarting.value = true;
   socket.emit('start-game', { roomId });
+  setTimeout(() => { isStarting.value = false; }, 5000); // fallback reset
 }
 
 function copyRoomCode() {
@@ -194,14 +284,31 @@ function copyRoomCode() {
   });
 }
 
-function shareRoom() {
-  const shareUrl = `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}`;
-  navigator.clipboard.writeText(shareUrl).then(() => {
+function copyShareLink() {
+  navigator.clipboard.writeText(shareUrl.value).then(() => {
     linkCopied.value = true;
+    showToast('链接已复制到剪贴板', 'success');
     setTimeout(() => { linkCopied.value = false; }, 2000);
   }).catch(() => {
-    showToast('复制链接失败，请手动复制', 'error');
+    showToast('复制失败，请手动复制', 'error');
   });
+}
+
+function shareViaSMS() {
+  const text = `来玩画传歪了！加入我的房间一起画：${shareUrl.value}`;
+  window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank');
+}
+
+function shareViaQQ() {
+  const text = `来玩画传歪了！加入我的房间一起画：${shareUrl.value}`;
+  // QQ API requires callback, simplified approach
+  window.open(`http://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(shareUrl.value)}&desc=${encodeURIComponent(text)}`, '_blank');
+}
+
+function shareViaWeChat() {
+  // Web API can't open WeChat directly, copy link instead
+  copyShareLink();
+  showToast('链接已复制，发送给朋友即可加入', 'info');
 }
 
 const handleRoomJoined = ({ room: r, playerId: pid }) => {
@@ -238,6 +345,7 @@ const handleRoomUpdate = ({ room: r }) => {
 };
 
 const handleGameStarted = ({ roomId: rid }) => {
+  isStarting.value = false;
   router.push({ name: 'play', params: { roomId: rid } });
 };
 
@@ -246,19 +354,22 @@ const handleError = ({ message }) => {
   // Don't auto-navigate home - let user retry with their input preserved
 };
 
-const handleDisconnect = () => {
-  isDisconnected.value = true;
-  showToast('网络连接已断开，正在重连...', 'error');
-};
-
 const handleReconnect = () => {
-  isDisconnected.value = false;
   showToast('已重新连接', 'success');
   // Re-join the room to sync state
   socket.emit('join-room', { roomId, playerName });
 };
 
+// Browser history warning - prevent accidental navigation while in waiting room
+function handleBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = '离开将断开与房间的连接。确定要离开吗？';
+  return e.returnValue;
+}
+
 onMounted(() => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
+
   if (!passedRoom) {
     socket.emit('join-room', { roomId, playerName });
   }
@@ -270,11 +381,11 @@ onMounted(() => {
   socket.on('player-status-changed', handlePlayerStatusChanged);
   socket.on('game-started', handleGameStarted);
   socket.on('error', handleError);
-  socket.on('disconnect', handleDisconnect);
   socket.on('connect', handleReconnect);
 });
 
 onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
   socket.off('room-joined', handleRoomJoined);
   socket.off('room-update', handleRoomUpdate);
   socket.off('player-joined', handlePlayerJoined);
@@ -282,7 +393,6 @@ onUnmounted(() => {
   socket.off('player-status-changed', handlePlayerStatusChanged);
   socket.off('game-started', handleGameStarted);
   socket.off('error', handleError);
-  socket.off('disconnect', handleDisconnect);
   socket.off('connect', handleReconnect);
 });
 </script>
@@ -304,50 +414,58 @@ onUnmounted(() => {
     var(--bg-paper);
 }
 
-/* Decorations */
-.deco {
-  position: fixed;
-  font-size: 36px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 1;
+/* Intro card */
+.intro-card {
+  position: relative;
+  z-index: 10;
+  background: var(--bg-paper);
+  border: 4px solid var(--color-accent-purple);
+  border-radius: var(--radius-large);
+  padding: 20px 24px;
+  margin-bottom: 8px;
+  text-align: center;
+  box-shadow: 0 0 20px rgba(142, 68, 173, 0.15), 6px 6px 0 var(--color-accent-yellow);
+  animation: cardFloat 4s ease-in-out infinite;
 }
 
-.deco-1 {
-  top: 10%;
-  right: 8%;
-  animation: float1 4s ease-in-out infinite;
+@keyframes cardFloat {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 0 20px rgba(142, 68, 173, 0.15), 6px 6px 0 var(--color-accent-yellow);
+  }
+  50% {
+    transform: translateY(-5px);
+    box-shadow: 0 0 25px rgba(142, 68, 173, 0.2), 8px 8px 0 var(--color-accent-yellow);
+  }
 }
 
-.deco-2 {
-  bottom: 15%;
-  left: 5%;
-  animation: float2 5s ease-in-out infinite;
+.intro-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 3px solid var(--color-accent-purple);
+  border-radius: var(--radius-medium);
+  padding: 10px 20px;
+  margin-bottom: 12px;
+  color: var(--color-accent-purple);
+  font-weight: bold;
+  font-size: 1rem;
+  font-family: var(--font-body);
 }
 
-.deco-3 {
-  top: 50%;
-  right: 5%;
-  animation: float3 4s ease-in-out infinite 0.5s;
+.intro-icon {
+  font-size: 1.3rem;
 }
 
-@keyframes float1 {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-15px) rotate(5deg); }
+.intro-count {
+  color: var(--color-primary);
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
-@keyframes float2 {
-  0%, 100% { transform: translateY(0) rotate(5deg); }
-  50% { transform: translateY(-20px) rotate(-5deg); }
-}
-
-@keyframes float3 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(8deg); }
-}
-
-/* Disconnected overlay */
-.disconnected-overlay {
+/* Connection overlay */
+.connection-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -358,24 +476,64 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  backdrop-filter: blur(2px);
 }
 
-.disconnected-message {
+.connection-message {
   background: white;
-  padding: 20px 32px;
+  padding: 24px 36px;
   border-radius: 16px;
   border: 4px solid var(--color-accent-red);
   box-shadow: 6px 6px 0 var(--color-accent-red);
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 12px;
   font-size: 1.1rem;
   font-weight: bold;
   color: var(--color-accent-red);
+  min-width: 200px;
 }
 
-.disconnected-icon {
-  font-size: 1.5rem;
+.connection-message.reconnecting {
+  border-color: var(--color-accent-yellow);
+  color: var(--color-primary);
+}
+
+.connection-icon {
+  font-size: 2rem;
+}
+
+.connection-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reconnect-progress {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.reconnect-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--color-accent-yellow);
+  border-radius: 50%;
+  animation: dotBounce 1.4s ease-in-out infinite;
+}
+
+.reconnect-dot:nth-child(1) { animation-delay: 0s; }
+.reconnect-dot:nth-child(2) { animation-delay: 0.2s; }
+.reconnect-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: scale(1); opacity: 0.5; }
+  40% { transform: scale(1.3); opacity: 1; }
 }
 
 /* Content */
@@ -482,6 +640,11 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .copy-btn:hover {
@@ -512,6 +675,195 @@ onUnmounted(() => {
 .share-btn:hover {
   transform: translateY(-2px);
   box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+/* Share panel */
+.share-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 280px;
+  box-shadow: 5px 5px 0 var(--color-primary);
+  z-index: 100;
+}
+
+.share-panel-header {
+  font-weight: bold;
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+  text-align: center;
+  border-bottom: 2px dashed #ddd;
+  padding-bottom: 8px;
+}
+
+.share-link-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.share-link-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #666;
+  background: #f8f8f8;
+}
+
+.copy-link-btn {
+  padding: 8px 16px;
+  background: var(--color-accent-purple);
+  color: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.copy-link-btn:hover {
+  background: var(--color-primary);
+}
+
+.copy-link-btn.copied {
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.share-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.share-action-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.share-action-btn:hover {
+  transform: translateY(-2px);
+}
+
+.share-action-btn.sms {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.share-action-btn.sms:hover {
+  background: #e0e0e0;
+}
+
+.share-action-btn.qq {
+  background: #12b7f5;
+  color: white;
+}
+
+.share-action-btn.qq:hover {
+  background: #0da0e8;
+}
+
+.share-action-btn.wechat {
+  background: var(--color-accent-purple);
+  color: white;
+}
+
+.share-action-btn.wechat:hover {
+  background: var(--color-accent-purple);
+  opacity: 0.85;
+}
+
+.action-icon {
+  font-size: 1.3rem;
+}
+
+.action-text {
+  font-size: 0.7rem;
+}
+
+.share-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Share panel transition */
+.share-panel-enter-active {
+  animation: sharePanelIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.share-panel-leave-active {
+  animation: sharePanelOut 0.2s ease-out;
+}
+
+@keyframes sharePanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
+@keyframes sharePanelOut {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9) translateY(-10px);
+  }
+}
+
+/* Random story badge */
+.random-story-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.1);
+  animation: badgePop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.badge-icon {
+  font-size: 1rem;
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+@keyframes badgePop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Players card */
@@ -564,6 +916,23 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
+.min-players-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-info-bg);
+  border-top: 1px dashed var(--color-gray-border);
+  border-bottom: 1px dashed var(--color-gray-border);
+  color: var(--color-gray-dark);
+  font-size: var(--text-small);
+}
+
+.min-players-hint .hint-icon {
+  font-size: 0.9rem;
+}
+
 .player-list {
   list-style: none;
   margin: 0;
@@ -608,6 +977,24 @@ onUnmounted(() => {
 
 .player-item:last-child {
   border-bottom: none;
+}
+
+.player-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 32px 20px;
+  color: #888;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  opacity: 0.6;
+}
+
+.empty-text {
+  font-size: 0.9rem;
 }
 
 @keyframes itemSlide {
@@ -722,6 +1109,53 @@ onUnmounted(() => {
   50% { transform: translateY(4px); }
 }
 
+/* Unprepared players warning */
+.unprepared-card {
+  background: white;
+  border: 3px solid var(--color-accent-yellow);
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 4px 4px 0 var(--color-accent-yellow);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.unprepared-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.unprepared-icon {
+  font-size: 1.2rem;
+}
+
+.unprepared-title {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: bold;
+}
+
+.unprepared-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unprepared-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #fff3cd;
+  border: 2px solid var(--color-accent-yellow);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: #856404;
+  animation: itemSlide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* Actions */
 .actions-card {
   display: flex;
@@ -785,6 +1219,15 @@ onUnmounted(() => {
 .btn-arrow {
   font-size: 1.2rem;
   opacity: 0.8;
+}
+
+.start-btn.loading .btn-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Hints */

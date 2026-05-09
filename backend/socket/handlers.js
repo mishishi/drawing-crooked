@@ -1,4 +1,4 @@
-import { rooms, createRoom, getRoom, addPlayer, removePlayer, transferOwner, startGame, submitDrawing, advanceToNextPlayer, endGame, resetRoomForNewGame, getLastDrawing } from '../rooms.js';
+import { rooms, createRoom, getRoom, addPlayer, removePlayer, transferOwner, startGame, submitDrawing, skipTurn, advanceToNextPlayer, endGame, resetRoomForNewGame, getLastDrawing } from '../rooms.js';
 
 function generateRoomId() {
   let roomId;
@@ -12,15 +12,19 @@ export function registerSocketHandlers(io) {
   io.on('connection', (socket) => {
     console.log('Client connected:', socket.id);
 
-    socket.on('create-room', ({ playerName }) => {
+    socket.on('create-room', ({ playerName, story }) => {
       // Guard: prevent duplicate room creation from same socket
       if (socket.data.hasRoom) return;
       socket.data.hasRoom = true;
 
+      // Validate story parameter
+      const validatedStory = (story && typeof story === 'string' && story.trim().length > 0) ? story.trim() : null;
+      console.log('[create-room] received:', { playerName, story, validatedStory, socketId: socket.id });
       const roomId = generateRoomId();
-      const room = createRoom(roomId, socket.id, playerName);
+      const room = createRoom(roomId, socket.id, playerName, validatedStory);
+      console.log('[create-room] room created, selectedStory in room:', room.selectedStory);
       socket.join(roomId);
-      socket.emit('room-joined', { room, playerId: socket.id });
+      socket.emit('room-joined', { room, playerId: socket.id, mySentence: room.selectedStory });
     });
 
     socket.on('join-room', ({ roomId, playerName }) => {
@@ -109,11 +113,12 @@ export function registerSocketHandlers(io) {
 
     socket.on('start-game', ({ roomId }) => {
       const room = getRoom(roomId);
+      console.log('[start-game] received, checking room:', { roomId, roomExists: !!room, owner: room?.owner, socketOwner: socket.id, selectedStory: room?.selectedStory });
       if (!room || room.owner !== socket.id) {
         console.log('[start-game] rejected:', { roomExists: !!room, isOwner: room?.owner === socket.id, socketId: socket.id });
         return;
       }
-      console.log('[start-game] starting game for room', roomId, 'players:', room.players.map(p => ({ name: p.name, id: p.id })));
+      console.log('[start-game] selectedStory before startGame:', room.selectedStory);
       startGame(roomId, io);
       io.to(roomId).emit('game-started', { roomId });
     });
@@ -158,6 +163,26 @@ export function registerSocketHandlers(io) {
         console.log('[submit-drawing] game has ended');
         // Game has ended
       }
+    });
+
+    socket.on('skip-turn', ({ roomId }) => {
+      const room = getRoom(roomId);
+      if (!room) return;
+
+      const currentPlayer = room.players[room.currentPlayerIndex];
+      if (currentPlayer?.id !== socket.id) return;
+
+      const result = skipTurn(roomId, socket.id);
+      if (!result) return;
+
+      io.to(roomId).emit('turn-skipped', {
+        playerId: socket.id,
+        playerName: currentPlayer.name,
+        penalty: 5
+      });
+
+      // Advance to next player
+      advanceToNextPlayer(roomId, io);
     });
 
     socket.on('disconnect', () => {

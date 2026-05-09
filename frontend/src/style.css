@@ -1,11 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=ZCOOL+KuaiLe&display=swap');
-
 :root {
   --bg-paper: #FFF8F0;
   --color-primary: #2D3436;
   --color-accent-red: #FF6B6B;
   --color-accent-purple: #6C5CE7;
   --color-accent-yellow: #FDCB6E;
+  --color-accent-orange: #E67E22;
   --font-display: 'ZCOOL KuaiLe', cursive;
   --font-body: 'Noto Sans SC', sans-serif;
 
@@ -28,6 +27,18 @@
   --color-warning: #e67e22;
   --color-error: #c0392b;
   --color-info: #3498db;
+
+  /* Neutral colors */
+  --color-white: #ffffff;
+  --color-gray-light: #f5f5f5;
+  --color-gray-mid: #999999;
+  --color-gray-dark: #666666;
+  --color-gray-border: #dddddd;
+
+  /* Semantic backgrounds */
+  --color-error-bg: #fff5f5;
+  --color-success-bg: #f5fff5;
+  --color-info-bg: #f0f8ff;
 
   /* Spacing scale (4px base) */
   --space-1: 4px;
@@ -66,7 +77,7 @@ body {
 }
 
 .hand-drawn-btn {
-  background: #fff;
+  background: var(--color-white);
   border: 3px solid var(--color-primary);
   border-radius: var(--radius-small);
   padding: 12px 24px;

@@ -1,7 +1,24 @@
 <template>
   <transition name="toast">
-    <div v-if="visible" class="toast" :class="type">
-      <span class="toast-icon">{{ icon }}</span>
+    <div v-if="visible" class="toast" :class="type" role="alert" aria-live="polite">
+      <span class="toast-icon">
+        <!-- Error icon -->
+        <svg v-if="type === 'error'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <!-- Success icon -->
+        <svg v-else-if="type === 'success'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <!-- Info icon -->
+        <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </span>
       <span class="toast-message">{{ message }}</span>
     </div>
   </transition>
@@ -42,14 +59,6 @@ function show() {
     visible.value = false;
   }, actualDuration.value);
 }
-
-const icon = computed(() => {
-  switch (props.type) {
-    case 'error': return '⚠️';
-    case 'success': return '✅';
-    default: return 'ℹ️';
-  }
-});
 </script>
 
 <style scoped>
@@ -62,7 +71,7 @@ const icon = computed(() => {
   align-items: center;
   gap: 10px;
   padding: 14px 24px;
-  background: white;
+  background: var(--color-white);
   border: 3px solid var(--color-primary);
   border-radius: 16px;
   box-shadow: 5px 5px 0 var(--color-primary);
@@ -73,20 +82,26 @@ const icon = computed(() => {
 
 .toast.error {
   border-color: var(--color-accent-red);
-  background: #fff5f5;
+  background: var(--color-error-bg);
 }
 
 .toast.error .toast-message {
-  color: #c0392b;
+  color: var(--color-error);
 }
 
 .toast.success {
-  border-color: #4caf50;
-  background: #f5fff5;
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
 }
 
 .toast-icon {
-  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toast-icon svg {
+  display: block;
 }
 
 .toast-message {
@@ -99,13 +114,13 @@ const icon = computed(() => {
 }
 
 .toast-leave-active {
-  animation: toastOut 0.3s ease-out forwards;
+  animation: toastOut 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-20px) scale(0.9);
+    transform: translateX(-50%) translateY(-30px) scale(0.8);
   }
   to {
     opacity: 1;
@@ -114,9 +129,20 @@ const icon = computed(() => {
 }
 
 @keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
   to {
     opacity: 0;
-    transform: translateX(-50%) translateY(-10px) scale(0.95);
+    transform: translateX(-50%) translateY(-20px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-active,
+  .toast-leave-active {
+    animation: none;
   }
 }
 </style>

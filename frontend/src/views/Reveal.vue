@@ -2,6 +2,66 @@
   <div class="reveal">
     <h1 class="title">揭晓时刻</h1>
 
+    <!-- Original vs Final comparison -->
+    <div v-if="resultsLoaded && originalSentence && finalResult" class="comparison-card">
+      <div class="comparison-header">
+        <span class="comparison-icon">🔍</span>
+        <span class="comparison-title">原句 vs 结果</span>
+      </div>
+      <div class="comparison-content">
+        <div class="comparison-side original">
+          <div class="comparison-label">
+            <span class="label-badge">🎯 原句</span>
+          </div>
+          <div class="comparison-text">{{ originalSentence }}</div>
+        </div>
+        <div class="comparison-arrow">➡️</div>
+        <div class="comparison-side final">
+          <div class="comparison-label">
+            <span class="label-badge">✨ 最终结果</span>
+          </div>
+          <div class="comparison-text final-text">{{ finalResult }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div v-if="resultsLoaded && leaderboard.length > 1" class="leaderboard-card">
+      <div class="leaderboard-header">
+        <span class="leaderboard-icon">🏆</span>
+        <span class="leaderboard-title">积分榜</span>
+      </div>
+      <div class="leaderboard-list">
+        <div
+          v-for="(entry, index) in leaderboard"
+          :key="entry.id"
+          class="leaderboard-item"
+          :class="{
+            'is-me': entry.id === myPlayerId,
+            'top-3': index < 3
+          }"
+        >
+          <div class="rank-badge" :class="`rank-${index + 1}`">
+            <span v-if="index === 0">🥇</span>
+            <span v-else-if="index === 1">🥈</span>
+            <span v-else-if="index === 2">🥉</span>
+            <span v-else class="rank-num">{{ index + 1 }}</span>
+          </div>
+          <span class="player-name">{{ entry.name }}</span>
+          <span class="player-score">{{ entry.score }}分</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Score explanation -->
+    <div v-if="resultsLoaded && leaderboard.length > 1" class="score-explanation hand-drawn">
+      <span class="explanation-icon">💡</span>
+      <span class="explanation-text">每轮根据传递准确度获得积分，原句越接近最终结果得分越高</span>
+    </div>
+
+    <!-- My score badge -->
+    <div v-if="resultsLoaded && myScore > 0" class="score-badge">{{ myScore }}分</div>
+
     <!-- Round navigation -->
     <!-- Desktop: Button pills -->
     <nav v-if="!isMobile && resultsLoaded && roundCount > 1" class="round-nav">
@@ -22,6 +82,15 @@
         第{{ r }}轮
       </option>
     </select>
+
+    <!-- ChainViewer for simplified chain visualization -->
+    <div v-if="resultsLoaded" class="chain-viewer-section">
+      <ChainViewer
+        v-for="round in roundGroups"
+        :key="`chain-${round.round}`"
+        :chain="round.drawings"
+      />
+    </div>
 
     <div v-if="resultsLoaded" class="timeline" ref="timelineRef">
       <div
@@ -67,8 +136,9 @@
               </div>
 
               <!-- Drawing -->
-              <div class="drawing-card">
+              <div class="drawing-card" @click="openLightbox(item.imageData)">
                 <img :src="item.imageData" alt="Drawing" class="drawing-image" />
+                <div class="zoom-hint">🔍 点击放大</div>
               </div>
 
               <!-- Output: What this player produced -->
@@ -107,17 +177,79 @@
         🔄 重试
       </button>
     </div>
-    <div v-else class="loading hand-drawn">
-      <p>加载中...</p>
+    <!-- Skeleton loading state -->
+    <div v-else class="skeleton-loading">
+      <div class="skeleton-header">
+        <div class="skeleton-title"></div>
+      </div>
+
+      <!-- Skeleton leaderboard -->
+      <div class="skeleton-card">
+        <div class="skeleton-card-header">
+          <span class="skeleton-emoji"></span>
+          <span class="skeleton-text short"></span>
+        </div>
+        <div class="skeleton-list">
+          <div class="skeleton-item" v-for="i in 4" :key="i">
+            <div class="skeleton-rank"></div>
+            <div class="skeleton-name"></div>
+            <div class="skeleton-score"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton comparison card -->
+      <div class="skeleton-card">
+        <div class="skeleton-card-header purple">
+          <span class="skeleton-emoji"></span>
+          <span class="skeleton-text"></span>
+        </div>
+        <div class="skeleton-comparison">
+          <div class="skeleton-box">
+            <div class="skeleton-label"></div>
+            <div class="skeleton-content"></div>
+          </div>
+          <div class="skeleton-arrow"></div>
+          <div class="skeleton-box">
+            <div class="skeleton-label"></div>
+            <div class="skeleton-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton chain items -->
+      <div class="skeleton-chain">
+        <div class="skeleton-chain-item" v-for="i in 3" :key="i">
+          <div class="skeleton-connector"></div>
+          <div class="skeleton-player-badge"></div>
+          <div class="skeleton-input"></div>
+          <div class="skeleton-drawing"></div>
+          <div class="skeleton-output"></div>
+        </div>
+      </div>
+
+      <p class="skeleton-text loading-text">
+        <span class="loading-spinner"></span>
+        正在加载游戏结果...
+      </p>
     </div>
 
     <div class="actions">
+      <button @click="shareGame" class="hand-drawn-btn share-btn">
+        分享结果
+      </button>
       <button @click="playAgain" class="hand-drawn-btn primary">
         再来一局
       </button>
       <button @click="goHome" class="hand-drawn-btn secondary">
         返回首页
       </button>
+    </div>
+
+    <!-- Image lightbox for zoom view -->
+    <div v-if="lightboxVisible" class="lightbox" @click="closeLightbox">
+      <button class="lightbox-close" @click="closeLightbox">×</button>
+      <img :src="lightboxImage" alt="放大查看" class="lightbox-image" @click.stop />
     </div>
   </div>
 </template>
@@ -127,6 +259,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { socket } from '../socket/client.js';
 import { gameResults } from '../store/gameStore.js';
+import { showToast } from '../store/toastStore.js';
+import ChainViewer from '../components/ChainViewer.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -143,6 +277,10 @@ let scrollTimeout = null;
 const errorMessage = ref('');
 let loadingTimeout = null;
 
+// Lightbox state
+const lightboxVisible = ref(false);
+const lightboxImage = ref('');
+
 function playAgain() {
   socket.emit('restart-game', { roomId });
 }
@@ -155,6 +293,52 @@ function handleGameRestarted() {
 function goHome() {
   socket.emit('leave-room', { roomId });
   router.push({ name: 'home' });
+}
+
+async function shareGame() {
+  const shareUrl = `${window.location.origin}/room/${roomId}`;
+  const shareText = finalResult.value
+    ? `我在「画传歪了」游戏中，最终结果变成了："${finalResult.value}"，太好笑了！快来一起玩！`
+    : '我在「画传歪了」玩得太开心了，快来一起画！';
+
+  // Try Web Share API first
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: '画传歪了 - 游戏结果',
+        text: shareText,
+        url: shareUrl
+      });
+      showToast('分享成功！', 'success');
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        // Fall through to clipboard fallback
+      } else {
+        return; // User cancelled share
+      }
+    }
+  }
+
+  // Fallback: copy link to clipboard
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showToast('链接已复制到剪贴板，快去分享吧！', 'success');
+  } catch (err) {
+    showToast('分享失败，请手动复制链接', 'error');
+  }
+}
+
+function openLightbox(imageData) {
+  lightboxImage.value = imageData;
+  lightboxVisible.value = true;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  lightboxVisible.value = false;
+  lightboxImage.value = '';
+  document.body.style.overflow = '';
 }
 
 function scrollToRound(round) {
@@ -201,6 +385,51 @@ const canScrollChain = computed(() => {
   return container ? container.scrollWidth > container.clientWidth : false;
 });
 
+const myScore = computed(() => {
+  return gameResults.playerScores[myPlayerId.value] || 0;
+});
+
+// Original sentence vs final result comparison
+const originalSentence = computed(() => {
+  const drawings = gameResults.drawings || [];
+  if (drawings.length === 0) return null;
+  // The first drawing's sentence is the original sentence (player 0 saw their own sentence)
+  const firstDrawing = drawings.find(d => d.round === 1 && d.playerIndex === 0);
+  return firstDrawing?.sentence || gameResults.sentences?.[myPlayerId.value] || null;
+});
+
+const finalResult = computed(() => {
+  const drawings = gameResults.drawings || [];
+  if (drawings.length === 0) return null;
+  // Get the last drawing's output (what the last player wrote)
+  const lastDrawing = drawings[drawings.length - 1];
+  return lastDrawing?.output || null;
+});
+
+// Leaderboard: extract player names from drawings and combine with scores
+const leaderboard = computed(() => {
+  const scores = gameResults.playerScores || {};
+  const drawings = gameResults.drawings || [];
+
+  // Extract unique players from drawings (each drawing has playerName and from/to)
+  const playerMap = new Map();
+  drawings.forEach(d => {
+    if (d.from && d.playerName && !playerMap.has(d.from)) {
+      playerMap.set(d.from, d.playerName);
+    }
+    if (d.to && d.toName && !playerMap.has(d.to)) {
+      playerMap.set(d.to, d.toName);
+    }
+  });
+
+  const entries = Object.entries(scores).map(([id, score]) => ({
+    id,
+    name: playerMap.get(id) || '未知玩家',
+    score
+  }));
+  return entries.sort((a, b) => b.score - a.score);
+});
+
 function getPlayerEmoji(index) {
   const emojis = ['🎨', '🖌️', '🖊️', '✏️', '🖌️', '🎭'];
   return emojis[index % emojis.length];
@@ -211,6 +440,8 @@ function handleRoomJoined({ room, playerId }) {
   if (room && room.status === 'ended' && room.results) {
     gameResults.drawings = room.results.drawings || [];
     gameResults.sentences = room.results.sentences || {};
+    gameResults.playerScores = room.results.playerScores || {};
+    gameResults.roundScoreData = room.results.roundScoreData || [];
   }
   if (playerId) {
     myPlayerId.value = playerId;
@@ -283,6 +514,291 @@ onUnmounted(() => {
   transform: rotate(-2deg);
   text-shadow: 3px 3px 0 var(--color-accent-yellow);
   margin: 0;
+}
+
+.score-badge {
+  font-family: var(--font-display);
+  font-size: var(--text-h1);
+  color: var(--color-accent-yellow);
+  background: var(--color-accent-purple);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
+  border: 3px solid var(--color-primary);
+  box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+/* Comparison card */
+.comparison-card {
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 5px 5px 0 var(--color-primary);
+  overflow: hidden;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--color-accent-purple) 0%, #8e44ad 100%);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.comparison-icon {
+  font-size: 1.3rem;
+}
+
+.comparison-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+}
+
+.comparison-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  gap: 12px;
+}
+
+.comparison-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.comparison-label {
+  display: flex;
+  align-items: center;
+}
+
+.label-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--color-primary);
+}
+
+.comparison-side.original .label-badge {
+  background: var(--color-accent-red);
+  color: white;
+  border-color: var(--color-accent-red);
+}
+
+.comparison-side.final .label-badge {
+  background: var(--color-accent-purple);
+  color: white;
+  border-color: var(--color-accent-purple);
+}
+
+.comparison-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  text-align: center;
+  padding: 12px 16px;
+  background: #f8f8ff;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+}
+
+.final-text {
+  background: linear-gradient(135deg, #fff8f8 0%, #fff0ff 100%);
+  color: var(--color-accent-purple);
+}
+
+.comparison-arrow {
+  font-size: 2rem;
+  flex-shrink: 0;
+  animation: pulseArrow 1.5s ease-in-out infinite;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseArrow {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50% { transform: translateX(5px); opacity: 1; }
+}
+
+/* Leaderboard */
+.leaderboard-card {
+  width: 100%;
+  max-width: 400px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 5px 5px 0 var(--color-primary);
+  overflow: hidden;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+.leaderboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #ffd700 0%, #ffb347 50%, #ffd700 100%);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.leaderboard-icon {
+  font-size: 1.5rem;
+}
+
+.leaderboard-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--color-primary);
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8f8ff;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.leaderboard-item.is-me {
+  background: linear-gradient(135deg, #f0f0ff 0%, #e8e0ff 100%);
+  border: 2px solid var(--color-accent-purple);
+}
+
+.leaderboard-item.top-3 {
+  background: linear-gradient(135deg, #fffef0 0%, #fff8e0 100%);
+}
+
+.leaderboard-item.top-3.is-me {
+  background: linear-gradient(135deg, #f0f0ff 0%, #ffe0ff 100%);
+  border: 2px solid var(--color-accent-purple);
+}
+
+.rank-badge {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border-radius: 50%;
+  background: #eee;
+  flex-shrink: 0;
+}
+
+.rank-badge.rank-1 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+  box-shadow: 2px 2px 0 #b8860b;
+}
+
+.rank-badge.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0 0%, #a0a0a0 100%);
+  box-shadow: 2px 2px 0 #808080;
+}
+
+.rank-badge.rank-3 {
+  background: linear-gradient(135deg, #cd7f32 0%, #b8860b 100%);
+  box-shadow: 2px 2px 0 #8b4513;
+}
+
+.rank-num {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #666;
+}
+
+.player-name {
+  flex: 1;
+  font-weight: bold;
+  color: var(--color-primary);
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-item.is-me .player-name {
+  color: var(--color-accent-purple);
+}
+
+.player-score {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--color-accent-red);
+  background: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 2px solid var(--color-accent-red);
+}
+
+/* Score explanation */
+.score-explanation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px dashed var(--color-accent-purple);
+  border-radius: var(--radius-medium);
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.explanation-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+}
+
+.chain-viewer-section {
+  width: 100%;
+  max-width: 800px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 4px 4px 0 var(--color-primary);
 }
 
 /* Round navigation */
@@ -605,6 +1121,31 @@ onUnmounted(() => {
   border: 3px solid var(--color-primary);
   box-shadow: 3px 3px 0 var(--color-primary);
   width: 100%;
+  cursor: zoom-in;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.drawing-card:hover {
+  transform: scale(1.02);
+  box-shadow: 5px 5px 0 var(--color-primary);
+}
+
+.zoom-hint {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  font-size: 10px;
+  color: #888;
+  background: rgba(255,255,255,0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.drawing-card:hover .zoom-hint {
+  opacity: 1;
 }
 
 .drawing-image {
@@ -612,6 +1153,68 @@ onUnmounted(() => {
   max-height: 150px;
   object-fit: contain;
   border-radius: 6px;
+}
+
+/* Lightbox */
+.lightbox {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: white;
+  border-radius: 50%;
+  font-size: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 3px 3px 0 var(--color-primary);
+  transition: transform 0.1s;
+}
+
+.lightbox-close:hover {
+  transform: scale(1.1);
+}
+
+.lightbox-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(255,255,255,0.2);
+  animation: zoomIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .sentence-label {
@@ -647,6 +1250,251 @@ onUnmounted(() => {
   padding: 4px 10px;
   border-radius: 10px;
   border: 2px dashed var(--color-accent-purple);
+}
+
+/* Skeleton loading state */
+.skeleton-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 600px;
+  padding: 20px 0;
+}
+
+.skeleton-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.skeleton-title {
+  width: 200px;
+  height: 48px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 3px solid var(--color-primary);
+}
+
+.skeleton-card {
+  width: 100%;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 5px 5px 0 var(--color-primary);
+  overflow: hidden;
+}
+
+.skeleton-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #ffd700 0%, #ffb347 50%, #ffd700 100%);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.skeleton-card-header.purple {
+  background: linear-gradient(135deg, var(--color-accent-purple) 0%, #8e44ad 100%);
+}
+
+.skeleton-emoji {
+  width: 24px;
+  height: 24px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 6px;
+}
+
+.skeleton-text {
+  height: 20px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+}
+
+.skeleton-text.short {
+  width: 80px;
+}
+
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8f8ff;
+  border-radius: 10px;
+}
+
+.skeleton-rank {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 50%;
+}
+
+.skeleton-name {
+  flex: 1;
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-score {
+  width: 60px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+.skeleton-comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  gap: 12px;
+}
+
+.skeleton-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-label {
+  width: 60px;
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-content {
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+}
+
+.skeleton-arrow {
+  font-size: 2rem;
+  color: #ccc;
+}
+
+.skeleton-chain {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+
+.skeleton-chain-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  padding: 16px 12px;
+  background: white;
+  border-radius: 16px;
+  border: 3px solid #ddd;
+}
+
+.skeleton-connector {
+  width: 80px;
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-player-badge {
+  width: 100px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+}
+
+.skeleton-input,
+.skeleton-output {
+  width: 100%;
+  height: 32px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+}
+
+.skeleton-drawing {
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 10px;
+  border: 3px solid var(--color-primary);
+}
+
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-accent-purple);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 4px solid var(--color-accent-yellow);
+  border-top-color: var(--color-accent-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading {
@@ -690,6 +1538,18 @@ onUnmounted(() => {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 8px;
+  animation: fadeInUp 0.5s ease-out 0.8s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hand-drawn-btn {
@@ -727,6 +1587,15 @@ onUnmounted(() => {
   color: white;
 }
 
+.share-btn {
+  background: var(--color-accent-yellow);
+  color: var(--color-primary);
+}
+
+.share-btn:hover {
+  background: #ffe066;
+}
+
 @media (max-width: 600px) {
   .timeline {
     padding: 12px;
@@ -739,6 +1608,18 @@ onUnmounted(() => {
   .round-nav-btn {
     padding: 6px 12px;
     font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-title,
+  .skeleton-item,
+  .skeleton-rank,
+  .skeleton-name,
+  .skeleton-score,
+  .skeleton-chain-item,
+  .loading-spinner {
+    animation: none;
   }
 }
 </style>
