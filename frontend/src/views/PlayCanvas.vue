@@ -141,6 +141,12 @@
             </svg>
             清空
           </button>
+          <button @click="confirmSkip" class="action-btn skip-btn">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+            </svg>
+            跳过 (-5分)
+          </button>
           <button @click="submitDrawing" class="action-btn submit-btn">
             <svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
               <polyline points="20 6 9 17 4 12"></polyline>
@@ -155,6 +161,14 @@
     <div class="doodle doodle-1">✏️</div>
     <div class="doodle doodle-2">🎨</div>
     <div class="doodle doodle-3">✨</div>
+
+    <!-- Handoff Animation -->
+    <HandoffAnimation
+      :show="showHandoff"
+      :imageData="handoffImageData"
+      :message="handoffMessage"
+      @animation-complete="handleHandoffComplete"
+    />
   </div>
 </template>
 
@@ -163,6 +177,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import GameCanvas from '../components/GameCanvas.vue';
 import Toolbar from '../components/Toolbar.vue';
+import HandoffAnimation from '../components/HandoffAnimation.vue';
 import { socket, connectionState } from '../socket/client.js';
 import { setGameResults, clearGameResults } from '../store/gameStore.js';
 import { showToast } from '../store/toastStore.js';
@@ -214,6 +229,12 @@ const currentSize = ref(8);
 // Turn indicator state
 const showTurnIndicator = ref(false);
 let turnIndicatorTimeout = null;
+
+// Handoff animation state
+const showHandoff = ref(false);
+const handoffImageData = ref(null);
+const handoffMessage = ref('');
+let handoffTimeout = null;
 
 // Player state
 const players = ref([]);
@@ -282,6 +303,21 @@ function dismissCelebration() {
       gameCanvasRef.value.clearCanvas();
     }
   }
+}
+
+// Handoff animation functions
+function triggerHandoff(imageData, message = '传递中...') {
+  if (handoffTimeout) clearTimeout(handoffTimeout);
+  handoffImageData.value = imageData;
+  handoffMessage.value = message;
+  showHandoff.value = true;
+  handoffTimeout = setTimeout(() => {
+    showHandoff.value = false;
+  }, 1500);
+}
+
+function handleHandoffComplete() {
+  console.log('[handoff] animation complete');
 }
 
 // Timer functions
@@ -369,6 +405,12 @@ function undoCanvas() {
   gameCanvasRef.value?.undo();
 }
 
+function confirmSkip() {
+  if (confirm('确定要跳过回合吗？将扣除5分！')) {
+    socket.emit('skip-turn', { roomId });
+  }
+}
+
 // Socket event handlers
 function handleYourSentence({ sentence: s }) {
   sentence.value = s;
@@ -382,6 +424,11 @@ function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName
   isMyTurn.value = myTurn;
   previousDrawing.value = prevDrawing || null;
   console.log('[your-turn] isMyTurn set to:', isMyTurn.value);
+
+  // Trigger handoff animation if it's my turn with a previous drawing
+  if (isMyTurn.value && prevDrawing) {
+    triggerHandoff(prevDrawing, '看看上一位画了什么~');
+  }
 
   if (isMyTurn.value) {
     console.log('[your-turn] it is my turn, setting up canvas');
@@ -402,6 +449,7 @@ function handleYourTurn({ round, previousDrawing: prevDrawing, currentPlayerName
 function handleNewRound({ round, totalRounds: total }) {
   currentRound.value = round;
   totalRounds.value = total;
+  showToast(`第 ${round} 轮开始！`, 'info');
 }
 
 function handleDrawingUpdate({ imageData }) {
@@ -469,8 +517,14 @@ function handlePlayerLeft({ playerId: pid }) {
   players.value = players.value.filter(p => p.id !== pid);
 }
 
-function handleTurnSkipped({ skippedPlayerName, newCurrentPlayerName }) {
-  showToast(`${skippedPlayerName} 掉线了，轮到 ${newCurrentPlayerName}`, 'info');
+function handleTurnSkipped({ skippedPlayerName, newCurrentPlayerName, playerId, playerName, penalty }) {
+  if (playerName && penalty !== undefined) {
+    // Manual skip with penalty
+    showToast(`${playerName} 跳过了回合 (-${penalty}分)`, 'info');
+  } else if (skippedPlayerName && newCurrentPlayerName) {
+    // Disconnect skip
+    showToast(`${skippedPlayerName} 掉线了，轮到 ${newCurrentPlayerName}`, 'info');
+  }
 }
 
 // Reconnect handler - saved as reference for proper cleanup
@@ -1052,6 +1106,11 @@ onUnmounted(() => {
 
 .clear-btn {
   background: white;
+  color: var(--color-primary);
+}
+
+.skip-btn {
+  background: var(--color-accent-yellow);
   color: var(--color-primary);
 }
 
