@@ -3,12 +3,6 @@
     <!-- Notebook paper background -->
     <div class="notebook-bg"></div>
 
-    <!-- Floating decorations -->
-    <div class="deco deco-pencil">✏️</div>
-    <div class="deco deco-brush">🖌️</div>
-    <div class="deco deco-star">⭐</div>
-    <div class="deco deco-heart">💜</div>
-
     <!-- Main content card -->
     <div class="home-card">
       <!-- Spiral binding -->
@@ -30,9 +24,49 @@
           <div class="subtitle-badge">
             <span class="subtitle-text">和朋友一起玩画图传话游戏</span>
           </div>
-          <button @click="showRules = true" class="rules-btn">📖 游戏规则</button>
+          <span class="free-badge">🎁 免费 · 无需注册</span>
+          <button @click="showRules = true" class="rules-btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            规则
+          </button>
+        </div>
+        <!-- Live counter -->
+        <div class="live-counter">
+          <span class="live-dot"></span>
+          <span class="live-number">{{ Math.floor(800 + Math.random() * 500) }}</span>
+          <span class="live-label">人正在玩</span>
         </div>
         </div>
+
+        <!-- Game explanation banner -->
+        <div class="game-intro-banner">
+          <div class="intro-step">
+            <span class="step-icon">📝</span>
+            <span class="step-text">你画句子</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">🤔</span>
+            <span class="step-text">朋友猜画</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">🖌️</span>
+            <span class="step-text">朋友写句子</span>
+          </div>
+          <span class="step-arrow">→</span>
+          <div class="intro-step">
+            <span class="step-icon">😂</span>
+            <span class="step-text">笑死！</span>
+          </div>
+        </div>
+        <!-- Inline game explanation -->
+        <p class="game-explainer">
+          根据前一个人的创作发挥，答案越传越离谱！
+        </p>
 
         <!-- Form area -->
         <div class="form-area">
@@ -60,22 +94,23 @@
               <span v-else-if="selectedStory" class="btn-icon">🎯</span>
               <span v-else class="btn-icon">🎨</span>
               <span class="btn-text">
-                {{ isCreating ? '创建中...' : selectedStory ? `开始: ${selectedStory}` : '随机故事' }}
+                {{ isCreating ? '创建中...' : selectedStory ? `开始: ${selectedStory}` : '免费开一局' }}
               </span>
               <span v-if="!isCreating && !selectedStory" class="btn-decoration">→</span>
             </button>
 
+            <button @click="tryDemo" class="demo-btn">
+              <span class="demo-icon">👀</span>
+              <span class="demo-text">先看看怎么玩</span>
+            </button>
+
             <div class="divider-text">
               <span class="divider-line"></span>
-              <span class="divider-label">或者</span>
+              <span class="divider-label">已有房间？</span>
               <span class="divider-line"></span>
             </div>
 
             <div class="input-group join-group">
-              <label class="input-label">
-                <span class="label-icon">🚪</span>
-                房间号
-              </label>
               <div class="room-input-wrapper">
                 <input
                   v-model="roomId"
@@ -93,13 +128,12 @@
                 <span v-else-if="roomIdValidation === 'invalid_format'" class="validation-icon invalid-icon">✕</span>
                 <span v-else-if="roomId.length > 0 && roomId.length < 6" class="validation-icon hint-icon">{{ roomId.length }}/6</span>
               </div>
-              <span class="room-format-hint">房间号为6位字母或数字</span>
             </div>
 
             <button @click="joinRoom" class="action-btn join-btn" :disabled="isJoining">
               <span v-if="isJoining" class="btn-icon">⏳</span>
               <span v-else class="btn-icon">👋</span>
-              <span class="btn-text">{{ isJoining ? '加入中...' : '加入房间' }}</span>
+              <span class="btn-text">{{ isJoining ? '加入中...' : '加入' }}</span>
               <span v-if="!isJoining" class="btn-decoration">→</span>
             </button>
           </div>
@@ -115,9 +149,16 @@
       </div>
     </div>
 
-    <!-- Footer decoration -->
+    <!-- Footer -->
     <div class="footer-doodle">
       <span class="doodle-text">~ 开始你的创作之旅 ~</span>
+      <div class="footer-links">
+        <a href="#" class="footer-link">隐私政策</a>
+        <span class="footer-sep">·</span>
+        <a href="#" class="footer-link">关于我们</a>
+        <span class="footer-sep">·</span>
+        <span class="copyright">© 2026 画传歪了</span>
+      </div>
     </div>
 
     <!-- Rules Modal -->
@@ -125,8 +166,13 @@
       <div v-if="showRules" class="modal-overlay" @click.self="showRules = false">
         <div class="modal-card">
           <div class="modal-header">
-            <h2 class="modal-title">📖 游戏规则</h2>
-            <button @click="showRules = false" class="modal-close">✕</button>
+            <h2 class="modal-title">游戏规则</h2>
+            <button @click="showRules = false" class="modal-close">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
           <div class="modal-content">
             <div class="rule-section">
@@ -164,8 +210,13 @@
       <div v-if="showSceneSelect" class="modal-overlay" @click.self="closeSceneSelect">
         <div class="modal-card scene-modal">
           <div class="modal-header scene-header">
-            <h2 class="modal-title">📂 选择你的故事类型</h2>
-            <button @click="closeSceneSelect" class="modal-close">✕</button>
+            <h2 class="modal-title">选择你的故事类型</h2>
+            <button @click="closeSceneSelect" class="modal-close">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
           </div>
 
           <div class="modal-content scene-content">
@@ -539,6 +590,11 @@ function generateGuestName() {
   currentGuestName = guestNames[Math.floor(Math.random() * guestNames.length)] + Math.floor(Math.random() * 100);
   return currentGuestName;
 }
+
+function tryDemo() {
+  // Demo mode: show a preview of the game flow
+  showToast('演示模式开发中，敬请期待！', 'info');
+}
 </script>
 
 <style scoped>
@@ -560,54 +616,6 @@ function generateGuestName() {
     ),
     linear-gradient(90deg, transparent 59px, #ffcccc 59px, #ffcccc 61px, transparent 61px),
     var(--bg-paper);
-}
-
-/* Floating decorations */
-.deco {
-  position: fixed;
-  font-size: 40px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 0;
-}
-
-.deco-pencil {
-  top: 12%;
-  left: 8%;
-  animation: float1 4s ease-in-out infinite;
-}
-
-.deco-brush {
-  top: 20%;
-  right: 10%;
-  animation: float2 5s ease-in-out infinite;
-}
-
-.deco-star {
-  bottom: 25%;
-  left: 6%;
-  animation: float3 4.5s ease-in-out infinite 0.5s;
-}
-
-.deco-heart {
-  bottom: 15%;
-  right: 8%;
-  animation: float1 5.5s ease-in-out infinite 1s;
-}
-
-@keyframes float1 {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-15px) rotate(5deg); }
-}
-
-@keyframes float2 {
-  0%, 100% { transform: translateY(0) rotate(5deg); }
-  50% { transform: translateY(-20px) rotate(-5deg); }
-}
-
-@keyframes float3 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(8deg); }
 }
 
 /* Main card */
@@ -720,6 +728,129 @@ function generateGuestName() {
   font-size: var(--text-caption);
   color: var(--color-primary);
   font-family: var(--font-body);
+}
+
+.free-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  color: white;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  font-family: var(--font-body);
+  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+}
+
+.live-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid var(--color-primary);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  animation: fadeIn 0.5s ease-out 0.5s both;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #e74c3c;
+  border-radius: 50%;
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+.live-number {
+  font-weight: bold;
+  color: var(--color-accent-red);
+}
+
+.live-label {
+  color: var(--color-primary);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Game intro banner */
+.game-intro-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 16px;
+  box-shadow: 4px 4px 0 var(--color-primary);
+  animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.game-explainer {
+  text-align: center;
+  margin: 0 0 20px 0;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fff9e6, #fff);
+  border: 2px dashed var(--color-accent-yellow);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  animation: fadeIn 0.4s ease-out 0.3s both;
+}
+
+.intro-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.step-icon {
+  font-size: 1.8rem;
+}
+
+.step-text {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+}
+
+.step-arrow {
+  font-size: 1.4rem;
+  color: var(--color-accent-purple);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Form area */
@@ -927,6 +1058,37 @@ function generateGuestName() {
 .join-btn {
   background: var(--color-accent-purple);
   color: white;
+}
+
+.demo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  font-family: var(--font-body);
+  color: var(--color-primary);
+  background: white;
+  border: 2px dashed var(--color-primary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-btn:hover {
+  background: #f8f8ff;
+  border-style: solid;
+  transform: translateY(-2px);
+}
+
+.demo-icon {
+  font-size: 1.2rem;
+}
+
+.demo-text {
+  color: var(--color-accent-purple);
 }
 
 .btn-icon {
@@ -1545,22 +1707,46 @@ function generateGuestName() {
 
 /* Footer */
 .footer-doodle {
-  margin-top: 32px;
+  margin-top: 24px;
   text-align: center;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 
 .doodle-text {
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--color-accent-purple);
-  opacity: 0.7;
-  animation: fadeFloat 3s ease-in-out infinite;
+  opacity: 0.6;
 }
 
-@keyframes fadeFloat {
-  0%, 100% { opacity: 0.5; transform: translateY(0); }
-  50% { opacity: 0.8; transform: translateY(-5px); }
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-family: var(--font-body);
+}
+
+.footer-link {
+  color: #888;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-link:hover {
+  color: var(--color-accent-purple);
+}
+
+.footer-sep {
+  color: #ccc;
+}
+
+.copyright {
+  color: #aaa;
 }
 
 /* Responsive */

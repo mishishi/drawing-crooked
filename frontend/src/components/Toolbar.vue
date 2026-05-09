@@ -36,7 +36,7 @@
       <button
         class="tool-btn undo-btn"
         @click="$emit('undo')"
-        :title="isMobile ? undefined : '撤销'"
+        :title="isMobile ? undefined : (undoCount === 0 ? '暂无可撤销的笔画' : '撤销')"
         :aria-label="isMobile ? '撤销' : undefined"
         :disabled="undoCount === 0"
         :class="{ disabled: undoCount === 0 }"
@@ -129,7 +129,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
 });
 
-const isMobile = computed(() => windowWidth.value < 400);
+const isMobile = computed(() => windowWidth.value < 600);
 
 defineProps({
   currentTool: {

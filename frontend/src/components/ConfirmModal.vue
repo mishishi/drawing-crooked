@@ -49,14 +49,16 @@ function hide() {
 }
 
 function handleConfirm() {
+  const resolve = resolvePromise;
   hide();
-  if (resolvePromise) resolvePromise(true);
+  if (resolve) resolve(true);
   emit('confirm');
 }
 
 function handleCancel() {
+  const resolve = resolvePromise;
   hide();
-  if (resolvePromise) resolvePromise(false);
+  if (resolve) resolve(false);
   emit('cancel');
 }
 

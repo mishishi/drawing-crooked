@@ -2,6 +2,29 @@
   <div class="reveal">
     <h1 class="title">揭晓时刻</h1>
 
+    <!-- Original vs Final comparison -->
+    <div v-if="resultsLoaded && originalSentence && finalResult" class="comparison-card">
+      <div class="comparison-header">
+        <span class="comparison-icon">🔍</span>
+        <span class="comparison-title">原句 vs 结果</span>
+      </div>
+      <div class="comparison-content">
+        <div class="comparison-side original">
+          <div class="comparison-label">
+            <span class="label-badge">🎯 原句</span>
+          </div>
+          <div class="comparison-text">{{ originalSentence }}</div>
+        </div>
+        <div class="comparison-arrow">➡️</div>
+        <div class="comparison-side final">
+          <div class="comparison-label">
+            <span class="label-badge">✨ 最终结果</span>
+          </div>
+          <div class="comparison-text final-text">{{ finalResult }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Leaderboard -->
     <div v-if="resultsLoaded && leaderboard.length > 1" class="leaderboard-card">
       <div class="leaderboard-header">
@@ -28,6 +51,12 @@
           <span class="player-score">{{ entry.score }}分</span>
         </div>
       </div>
+    </div>
+
+    <!-- Score explanation -->
+    <div v-if="resultsLoaded && leaderboard.length > 1" class="score-explanation hand-drawn">
+      <span class="explanation-icon">💡</span>
+      <span class="explanation-text">每轮根据传递准确度获得积分，原句越接近最终结果得分越高</span>
     </div>
 
     <!-- My score badge -->
@@ -148,11 +177,67 @@
         🔄 重试
       </button>
     </div>
-    <div v-else class="loading hand-drawn">
-      <p>加载中...</p>
+    <!-- Skeleton loading state -->
+    <div v-else class="skeleton-loading">
+      <div class="skeleton-header">
+        <div class="skeleton-title"></div>
+      </div>
+
+      <!-- Skeleton leaderboard -->
+      <div class="skeleton-card">
+        <div class="skeleton-card-header">
+          <span class="skeleton-emoji"></span>
+          <span class="skeleton-text short"></span>
+        </div>
+        <div class="skeleton-list">
+          <div class="skeleton-item" v-for="i in 4" :key="i">
+            <div class="skeleton-rank"></div>
+            <div class="skeleton-name"></div>
+            <div class="skeleton-score"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton comparison card -->
+      <div class="skeleton-card">
+        <div class="skeleton-card-header purple">
+          <span class="skeleton-emoji"></span>
+          <span class="skeleton-text"></span>
+        </div>
+        <div class="skeleton-comparison">
+          <div class="skeleton-box">
+            <div class="skeleton-label"></div>
+            <div class="skeleton-content"></div>
+          </div>
+          <div class="skeleton-arrow"></div>
+          <div class="skeleton-box">
+            <div class="skeleton-label"></div>
+            <div class="skeleton-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skeleton chain items -->
+      <div class="skeleton-chain">
+        <div class="skeleton-chain-item" v-for="i in 3" :key="i">
+          <div class="skeleton-connector"></div>
+          <div class="skeleton-player-badge"></div>
+          <div class="skeleton-input"></div>
+          <div class="skeleton-drawing"></div>
+          <div class="skeleton-output"></div>
+        </div>
+      </div>
+
+      <p class="skeleton-text loading-text">
+        <span class="loading-spinner"></span>
+        正在加载游戏结果...
+      </p>
     </div>
 
     <div class="actions">
+      <button @click="shareGame" class="hand-drawn-btn share-btn">
+        分享结果
+      </button>
       <button @click="playAgain" class="hand-drawn-btn primary">
         再来一局
       </button>
@@ -174,6 +259,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { socket } from '../socket/client.js';
 import { gameResults } from '../store/gameStore.js';
+import { showToast } from '../store/toastStore.js';
 import ChainViewer from '../components/ChainViewer.vue';
 
 const route = useRoute();
@@ -207,6 +293,40 @@ function handleGameRestarted() {
 function goHome() {
   socket.emit('leave-room', { roomId });
   router.push({ name: 'home' });
+}
+
+async function shareGame() {
+  const shareUrl = `${window.location.origin}/room/${roomId}`;
+  const shareText = finalResult.value
+    ? `我在「画传歪了」游戏中，最终结果变成了："${finalResult.value}"，太好笑了！快来一起玩！`
+    : '我在「画传歪了」玩得太开心了，快来一起画！';
+
+  // Try Web Share API first
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: '画传歪了 - 游戏结果',
+        text: shareText,
+        url: shareUrl
+      });
+      showToast('分享成功！', 'success');
+      return;
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        // Fall through to clipboard fallback
+      } else {
+        return; // User cancelled share
+      }
+    }
+  }
+
+  // Fallback: copy link to clipboard
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showToast('链接已复制到剪贴板，快去分享吧！', 'success');
+  } catch (err) {
+    showToast('分享失败，请手动复制链接', 'error');
+  }
 }
 
 function openLightbox(imageData) {
@@ -267,6 +387,23 @@ const canScrollChain = computed(() => {
 
 const myScore = computed(() => {
   return gameResults.playerScores[myPlayerId.value] || 0;
+});
+
+// Original sentence vs final result comparison
+const originalSentence = computed(() => {
+  const drawings = gameResults.drawings || [];
+  if (drawings.length === 0) return null;
+  // The first drawing's sentence is the original sentence (player 0 saw their own sentence)
+  const firstDrawing = drawings.find(d => d.round === 1 && d.playerIndex === 0);
+  return firstDrawing?.sentence || gameResults.sentences?.[myPlayerId.value] || null;
+});
+
+const finalResult = computed(() => {
+  const drawings = gameResults.drawings || [];
+  if (drawings.length === 0) return null;
+  // Get the last drawing's output (what the last player wrote)
+  const lastDrawing = drawings[drawings.length - 1];
+  return lastDrawing?.output || null;
 });
 
 // Leaderboard: extract player names from drawings and combine with scores
@@ -388,6 +525,124 @@ onUnmounted(() => {
   border-radius: var(--radius-full);
   border: 3px solid var(--color-primary);
   box-shadow: 3px 3px 0 var(--color-primary);
+}
+
+/* Comparison card */
+.comparison-card {
+  width: 100%;
+  max-width: 500px;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 5px 5px 0 var(--color-primary);
+  overflow: hidden;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+.comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, var(--color-accent-purple) 0%, #8e44ad 100%);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.comparison-icon {
+  font-size: 1.3rem;
+}
+
+.comparison-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+}
+
+.comparison-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  gap: 12px;
+}
+
+.comparison-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.comparison-label {
+  display: flex;
+  align-items: center;
+}
+
+.label-badge {
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--color-primary);
+}
+
+.comparison-side.original .label-badge {
+  background: var(--color-accent-red);
+  color: white;
+  border-color: var(--color-accent-red);
+}
+
+.comparison-side.final .label-badge {
+  background: var(--color-accent-purple);
+  color: white;
+  border-color: var(--color-accent-purple);
+}
+
+.comparison-text {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--color-primary);
+  text-align: center;
+  padding: 12px 16px;
+  background: #f8f8ff;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-break: break-word;
+}
+
+.final-text {
+  background: linear-gradient(135deg, #fff8f8 0%, #fff0ff 100%);
+  color: var(--color-accent-purple);
+}
+
+.comparison-arrow {
+  font-size: 2rem;
+  flex-shrink: 0;
+  animation: pulseArrow 1.5s ease-in-out infinite;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulseArrow {
+  0%, 100% { transform: translateX(0); opacity: 0.6; }
+  50% { transform: translateX(5px); opacity: 1; }
 }
 
 /* Leaderboard */
@@ -512,6 +767,29 @@ onUnmounted(() => {
   padding: 4px 10px;
   border-radius: 12px;
   border: 2px solid var(--color-accent-red);
+}
+
+/* Score explanation */
+.score-explanation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px dashed var(--color-accent-purple);
+  border-radius: var(--radius-medium);
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.explanation-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.explanation-text {
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  font-family: var(--font-body);
 }
 
 .chain-viewer-section {
@@ -974,6 +1252,251 @@ onUnmounted(() => {
   border: 2px dashed var(--color-accent-purple);
 }
 
+/* Skeleton loading state */
+.skeleton-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 600px;
+  padding: 20px 0;
+}
+
+.skeleton-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.skeleton-title {
+  width: 200px;
+  height: 48px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 3px solid var(--color-primary);
+}
+
+.skeleton-card {
+  width: 100%;
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-large);
+  box-shadow: 5px 5px 0 var(--color-primary);
+  overflow: hidden;
+}
+
+.skeleton-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #ffd700 0%, #ffb347 50%, #ffd700 100%);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.skeleton-card-header.purple {
+  background: linear-gradient(135deg, var(--color-accent-purple) 0%, #8e44ad 100%);
+}
+
+.skeleton-emoji {
+  width: 24px;
+  height: 24px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 6px;
+}
+
+.skeleton-text {
+  height: 20px;
+  background: rgba(255,255,255,0.5);
+  border-radius: 8px;
+}
+
+.skeleton-text.short {
+  width: 80px;
+}
+
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #f8f8ff;
+  border-radius: 10px;
+}
+
+.skeleton-rank {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 50%;
+}
+
+.skeleton-name {
+  flex: 1;
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-score {
+  width: 60px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+}
+
+.skeleton-comparison {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  gap: 12px;
+}
+
+.skeleton-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.skeleton-label {
+  width: 60px;
+  height: 16px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-content {
+  width: 100%;
+  height: 48px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+}
+
+.skeleton-arrow {
+  font-size: 2rem;
+  color: #ccc;
+}
+
+.skeleton-chain {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 10px 0;
+}
+
+.skeleton-chain-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 180px;
+  padding: 16px 12px;
+  background: white;
+  border-radius: 16px;
+  border: 3px solid #ddd;
+}
+
+.skeleton-connector {
+  width: 80px;
+  height: 20px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-player-badge {
+  width: 100px;
+  height: 28px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 12px;
+  border: 2px solid var(--color-primary);
+}
+
+.skeleton-input,
+.skeleton-output {
+  width: 100%;
+  height: 32px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+}
+
+.skeleton-drawing {
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 10px;
+  border: 3px solid var(--color-primary);
+}
+
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-accent-purple);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-top: 8px;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 4px solid var(--color-accent-yellow);
+  border-top-color: var(--color-accent-purple);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .loading {
   background: white;
   padding: 32px 48px;
@@ -1064,6 +1587,15 @@ onUnmounted(() => {
   color: white;
 }
 
+.share-btn {
+  background: var(--color-accent-yellow);
+  color: var(--color-primary);
+}
+
+.share-btn:hover {
+  background: #ffe066;
+}
+
 @media (max-width: 600px) {
   .timeline {
     padding: 12px;
@@ -1076,6 +1608,18 @@ onUnmounted(() => {
   .round-nav-btn {
     padding: 6px 12px;
     font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-title,
+  .skeleton-item,
+  .skeleton-rank,
+  .skeleton-name,
+  .skeleton-score,
+  .skeleton-chain-item,
+  .loading-spinner {
+    animation: none;
   }
 }
 </style>

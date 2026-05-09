@@ -18,22 +18,14 @@
     <!-- Notebook paper background -->
     <div class="notebook-bg"></div>
 
-    <!-- Floating decorations -->
-    <div class="deco deco-1">📝</div>
-    <div class="deco deco-2">🎮</div>
-    <div class="deco deco-3">✨</div>
-
-    <!-- Suspense poster -->
-    <div class="suspense-poster">
-      <div class="poster-warning">
-        <span class="poster-warning-icon">⚠️</span>
-        <span>警告：内容可能被歪曲</span>
+    <!-- Intro card -->
+    <div class="intro-card">
+      <div class="intro-text">
+        <span class="intro-icon">🎯</span>
+        <span>游戏规则：每人画一句，链条越长越歪！</span>
       </div>
-      <div class="poster-count">
+      <div class="intro-count">
         <span>👀 {{ players.length }}人已就位{{ players.length < 2 ? '，等待最后' + (2 - players.length) + '人...' : '!' }}</span>
-      </div>
-      <div class="poster-quote">
-        <p>"当你看到这句话的时候，一切都已经晚了"</p>
       </div>
     </div>
 
@@ -53,9 +45,42 @@
                 <span v-else>✓</span>
               </button>
             </div>
-            <button @click="shareRoom" class="share-btn">
-              <span>🔗</span> 分享邀请链接
+            <!-- Share panel toggle -->
+            <button @click="showSharePanel = !showSharePanel" class="share-btn">
+              <span>🔗</span> 邀请朋友
             </button>
+            <!-- Share panel dropdown -->
+            <transition name="share-panel">
+              <div v-if="showSharePanel" class="share-panel">
+                <div class="share-panel-header">邀请好友加入</div>
+                <div class="share-link-row">
+                  <input readonly :value="shareUrl" class="share-link-input" />
+                  <button @click="copyShareLink" class="copy-link-btn" :class="{ copied: linkCopied }">
+                    {{ linkCopied ? '已复制' : '复制' }}
+                  </button>
+                </div>
+                <div class="share-actions">
+                  <button @click="shareViaSMS" class="share-action-btn sms">
+                    <span class="action-icon">💬</span>
+                    <span class="action-text">短信</span>
+                  </button>
+                  <button @click="shareViaQQ" class="share-action-btn qq">
+                    <span class="action-icon">🐧</span>
+                    <span class="action-text">QQ</span>
+                  </button>
+                  <button @click="shareViaWeChat" class="share-action-btn wechat">
+                    <span class="action-icon">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                      </svg>
+                    </span>
+                    <span class="action-text">复制链接</span>
+                  </button>
+                </div>
+                <div class="share-hint">复制链接后发送给朋友即可加入</div>
+              </div>
+            </transition>
           </div>
           <div v-if="isRandomMode" class="random-story-badge">
             <span class="badge-icon">🎲</span>
@@ -70,6 +95,11 @@
           <span class="card-icon">👥</span>
           <h2>玩家列表</h2>
           <span class="player-count-badge">{{ players.length }}人</span>
+        </div>
+
+        <div class="min-players-hint">
+          <span class="hint-icon">💡</span>
+          <span class="hint-text">至少需要2位玩家才能开始游戏</span>
         </div>
 
         <transition-group name="player" tag="ul" class="player-list">
@@ -201,6 +231,11 @@ if (passedRoom) {
 const codeCopied = ref(false);
 const linkCopied = ref(false);
 const isStarting = ref(false);
+const showSharePanel = ref(false);
+
+const shareUrl = computed(() => {
+  return `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}`;
+});
 
 const isOwner = computed(() => playerId.value === ownerId.value);
 
@@ -249,14 +284,31 @@ function copyRoomCode() {
   });
 }
 
-function shareRoom() {
-  const shareUrl = `${window.location.origin}/#/waiting/${roomId}?name=${encodeURIComponent(playerName)}`;
-  navigator.clipboard.writeText(shareUrl).then(() => {
+function copyShareLink() {
+  navigator.clipboard.writeText(shareUrl.value).then(() => {
     linkCopied.value = true;
+    showToast('链接已复制到剪贴板', 'success');
     setTimeout(() => { linkCopied.value = false; }, 2000);
   }).catch(() => {
-    showToast('复制链接失败，请手动复制', 'error');
+    showToast('复制失败，请手动复制', 'error');
   });
+}
+
+function shareViaSMS() {
+  const text = `来玩画传歪了！加入我的房间一起画：${shareUrl.value}`;
+  window.open(`sms:?body=${encodeURIComponent(text)}`, '_blank');
+}
+
+function shareViaQQ() {
+  const text = `来玩画传歪了！加入我的房间一起画：${shareUrl.value}`;
+  // QQ API requires callback, simplified approach
+  window.open(`http://connect.qq.com/widget/shareqq/index.html?url=${encodeURIComponent(shareUrl.value)}&desc=${encodeURIComponent(text)}`, '_blank');
+}
+
+function shareViaWeChat() {
+  // Web API can't open WeChat directly, copy link instead
+  copyShareLink();
+  showToast('链接已复制，发送给朋友即可加入', 'info');
 }
 
 const handleRoomJoined = ({ room: r, playerId: pid }) => {
@@ -362,119 +414,54 @@ onUnmounted(() => {
     var(--bg-paper);
 }
 
-/* Decorations */
-.deco {
-  position: fixed;
-  font-size: 36px;
-  opacity: 0.5;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.deco-1 {
-  top: 10%;
-  right: 8%;
-  animation: float1 4s ease-in-out infinite;
-}
-
-.deco-2 {
-  bottom: 15%;
-  left: 5%;
-  animation: float2 5s ease-in-out infinite;
-}
-
-.deco-3 {
-  top: 50%;
-  right: 5%;
-  animation: float3 4s ease-in-out infinite 0.5s;
-}
-
-@keyframes float1 {
-  0%, 100% { transform: translateY(0) rotate(-5deg); }
-  50% { transform: translateY(-15px) rotate(5deg); }
-}
-
-@keyframes float2 {
-  0%, 100% { transform: translateY(0) rotate(5deg); }
-  50% { transform: translateY(-20px) rotate(-5deg); }
-}
-
-@keyframes float3 {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(8deg); }
-}
-
-/* Suspense poster */
-.suspense-poster {
+/* Intro card */
+.intro-card {
   position: relative;
   z-index: 10;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  border: 4px solid #e94560;
-  border-radius: 16px;
+  background: var(--bg-paper);
+  border: 4px solid var(--color-accent-purple);
+  border-radius: var(--radius-large);
   padding: 20px 24px;
   margin-bottom: 8px;
   text-align: center;
-  box-shadow: 0 0 30px rgba(233, 69, 96, 0.3), 8px 8px 0 rgba(233, 69, 96, 0.2);
-  animation: posterPulse 3s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(142, 68, 173, 0.15), 6px 6px 0 var(--color-accent-yellow);
+  animation: cardFloat 4s ease-in-out infinite;
 }
 
-@keyframes posterPulse {
+@keyframes cardFloat {
   0%, 100% {
-    box-shadow: 0 0 30px rgba(233, 69, 96, 0.3), 8px 8px 0 rgba(233, 69, 96, 0.2);
+    transform: translateY(0);
+    box-shadow: 0 0 20px rgba(142, 68, 173, 0.15), 6px 6px 0 var(--color-accent-yellow);
   }
   50% {
-    box-shadow: 0 0 50px rgba(233, 69, 96, 0.5), 8px 8px 0 rgba(233, 69, 96, 0.3);
+    transform: translateY(-5px);
+    box-shadow: 0 0 25px rgba(142, 68, 173, 0.2), 8px 8px 0 var(--color-accent-yellow);
   }
 }
 
-.poster-warning {
+.intro-text {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(233, 69, 96, 0.2);
-  border: 2px solid #e94560;
-  border-radius: 8px;
-  padding: 8px 16px;
+  gap: 10px;
+  background: white;
+  border: 3px solid var(--color-accent-purple);
+  border-radius: var(--radius-medium);
+  padding: 10px 20px;
   margin-bottom: 12px;
-  color: #e94560;
+  color: var(--color-accent-purple);
   font-weight: bold;
-  font-size: 0.95rem;
+  font-size: 1rem;
+  font-family: var(--font-body);
 }
 
-.poster-warning-icon {
-  font-size: 1.2rem;
-  animation: shake 0.5s ease-in-out infinite;
+.intro-icon {
+  font-size: 1.3rem;
 }
 
-@keyframes shake {
-  0%, 100% { transform: rotate(-5deg); }
-  50% { transform: rotate(5deg); }
-}
-
-.poster-count {
-  color: #fff;
+.intro-count {
+  color: var(--color-primary);
   font-size: 1.1rem;
-  margin-bottom: 10px;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-}
-
-.poster-quote {
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
-  border-top: 1px solid rgba(233, 69, 96, 0.3);
-  padding-top: 10px;
-  margin: 0;
-}
-
-.poster-quote p {
-  margin: 0;
-  animation: quoteFade 4s ease-in-out infinite;
-}
-
-@keyframes quoteFade {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+  font-weight: 500;
 }
 
 /* Connection overlay */
@@ -653,6 +640,11 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.2s;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .copy-btn:hover {
@@ -683,6 +675,164 @@ onUnmounted(() => {
 .share-btn:hover {
   transform: translateY(-2px);
   box-shadow: 2px 2px 0 var(--color-primary);
+}
+
+/* Share panel */
+.share-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 3px solid var(--color-primary);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 280px;
+  box-shadow: 5px 5px 0 var(--color-primary);
+  z-index: 100;
+}
+
+.share-panel-header {
+  font-weight: bold;
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  margin-bottom: 12px;
+  text-align: center;
+  border-bottom: 2px dashed #ddd;
+  padding-bottom: 8px;
+}
+
+.share-link-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.share-link-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: #666;
+  background: #f8f8f8;
+}
+
+.copy-link-btn {
+  padding: 8px 16px;
+  background: var(--color-accent-purple);
+  color: white;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.copy-link-btn:hover {
+  background: var(--color-primary);
+}
+
+.copy-link-btn.copied {
+  background: #4caf50;
+  border-color: #4caf50;
+}
+
+.share-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.share-action-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.share-action-btn:hover {
+  transform: translateY(-2px);
+}
+
+.share-action-btn.sms {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.share-action-btn.sms:hover {
+  background: #e0e0e0;
+}
+
+.share-action-btn.qq {
+  background: #12b7f5;
+  color: white;
+}
+
+.share-action-btn.qq:hover {
+  background: #0da0e8;
+}
+
+.share-action-btn.wechat {
+  background: var(--color-accent-purple);
+  color: white;
+}
+
+.share-action-btn.wechat:hover {
+  background: var(--color-accent-purple);
+  opacity: 0.85;
+}
+
+.action-icon {
+  font-size: 1.3rem;
+}
+
+.action-text {
+  font-size: 0.7rem;
+}
+
+.share-hint {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Share panel transition */
+.share-panel-enter-active {
+  animation: sharePanelIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.share-panel-leave-active {
+  animation: sharePanelOut 0.2s ease-out;
+}
+
+@keyframes sharePanelIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
+@keyframes sharePanelOut {
+  to {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9) translateY(-10px);
+  }
 }
 
 /* Random story badge */
@@ -764,6 +914,23 @@ onUnmounted(() => {
   border-radius: 12px;
   font-size: 0.85rem;
   font-weight: bold;
+}
+
+.min-players-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-info-bg);
+  border-top: 1px dashed var(--color-gray-border);
+  border-bottom: 1px dashed var(--color-gray-border);
+  color: var(--color-gray-dark);
+  font-size: var(--text-small);
+}
+
+.min-players-hint .hint-icon {
+  font-size: 0.9rem;
 }
 
 .player-list {

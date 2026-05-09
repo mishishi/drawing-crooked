@@ -1,7 +1,24 @@
 <template>
   <transition name="toast">
-    <div v-if="visible" class="toast" :class="type">
-      <span class="toast-icon">{{ icon }}</span>
+    <div v-if="visible" class="toast" :class="type" role="alert" aria-live="polite">
+      <span class="toast-icon">
+        <!-- Error icon -->
+        <svg v-if="type === 'error'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <!-- Success icon -->
+        <svg v-else-if="type === 'success'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <!-- Info icon -->
+        <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </span>
       <span class="toast-message">{{ message }}</span>
     </div>
   </transition>
@@ -42,14 +59,6 @@ function show() {
     visible.value = false;
   }, actualDuration.value);
 }
-
-const icon = computed(() => {
-  switch (props.type) {
-    case 'error': return '⚠️';
-    case 'success': return '✅';
-    default: return 'ℹ️';
-  }
-});
 </script>
 
 <style scoped>
@@ -86,7 +95,13 @@ const icon = computed(() => {
 }
 
 .toast-icon {
-  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toast-icon svg {
+  display: block;
 }
 
 .toast-message {
@@ -121,6 +136,13 @@ const icon = computed(() => {
   to {
     opacity: 0;
     transform: translateX(-50%) translateY(-20px) scale(0.9);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter-active,
+  .toast-leave-active {
+    animation: none;
   }
 }
 </style>
