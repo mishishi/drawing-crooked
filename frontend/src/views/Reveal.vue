@@ -1015,6 +1015,18 @@ onUnmounted(() => {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 8px;
+  animation: fadeInUp 0.5s ease-out 0.8s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hand-drawn-btn {
