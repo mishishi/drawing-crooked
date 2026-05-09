@@ -31,6 +31,8 @@ const props = defineProps({
 
 const emit = defineEmits(['animation-complete']);
 
+let timeout = null;
+
 function handleClick() {
   // Allow clicking to dismiss early
   emit('animation-complete');
@@ -38,13 +40,15 @@ function handleClick() {
 
 onMounted(() => {
   // Emit animation-complete after transition duration
-  const timeout = setTimeout(() => {
+  timeout = setTimeout(() => {
     if (props.show) {
       emit('animation-complete');
     }
   }, 1500);
+});
 
-  onUnmounted(() => clearTimeout(timeout));
+onUnmounted(() => {
+  if (timeout) clearTimeout(timeout);
 });
 </script>
 
