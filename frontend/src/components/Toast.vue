@@ -62,7 +62,7 @@ const icon = computed(() => {
   align-items: center;
   gap: 10px;
   padding: 14px 24px;
-  background: white;
+  background: var(--color-white);
   border: 3px solid var(--color-primary);
   border-radius: 16px;
   box-shadow: 5px 5px 0 var(--color-primary);
@@ -73,16 +73,16 @@ const icon = computed(() => {
 
 .toast.error {
   border-color: var(--color-accent-red);
-  background: #fff5f5;
+  background: var(--color-error-bg);
 }
 
 .toast.error .toast-message {
-  color: #c0392b;
+  color: var(--color-error);
 }
 
 .toast.success {
-  border-color: #4caf50;
-  background: #f5fff5;
+  border-color: var(--color-success);
+  background: var(--color-success-bg);
 }
 
 .toast-icon {
@@ -99,13 +99,13 @@ const icon = computed(() => {
 }
 
 .toast-leave-active {
-  animation: toastOut 0.3s ease-out forwards;
+  animation: toastOut 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translateX(-50%) translateY(-20px) scale(0.9);
+    transform: translateX(-50%) translateY(-30px) scale(0.8);
   }
   to {
     opacity: 1;
@@ -114,9 +114,13 @@ const icon = computed(() => {
 }
 
 @keyframes toastOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
   to {
     opacity: 0;
-    transform: translateX(-50%) translateY(-10px) scale(0.95);
+    transform: translateX(-50%) translateY(-20px) scale(0.9);
   }
 }
 </style>
