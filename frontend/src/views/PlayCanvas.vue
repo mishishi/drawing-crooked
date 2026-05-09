@@ -131,6 +131,7 @@
           v-model:tool="currentTool"
           v-model:color="currentColor"
           v-model:size="currentSize"
+          :undo-count="undoCount"
           @undo="undoCanvas"
         />
         <div class="canvas-actions">
@@ -247,6 +248,11 @@ const playersAheadInQueue = computed(() => {
   // Count players between current (exclusive) and me (exclusive)
   let ahead = (myIdx - currentIdx - 1 + players.value.length) % players.value.length;
   return ahead;
+});
+
+// Undo count from canvas
+const undoCount = computed(() => {
+  return gameCanvasRef.value?.undoCount ?? 0;
 });
 
 // Watch for isMyTurn changes to show celebration
@@ -653,7 +659,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: var(--space-8);
   max-width: 600px;
   margin: 0 auto;
 }

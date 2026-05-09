@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&family=ZCOOL+KuaiLe&display=swap');
+
 :root {
   --bg-paper: #FFF8F0;
   --color-primary: #2D3436;
@@ -115,4 +117,25 @@ textarea:focus-visible {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+/* Notebook paper background grid */
+.notebook-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-color: #fafafa;
+  background-image:
+    /* Red margin line */
+    linear-gradient(90deg, #ff6b6b33 0%, #ff6b6b33 1px, transparent 1px),
+    /* Horizontal blue lines */
+    linear-gradient(180deg, #a8d8ea33 0%, #a8d8ea33 1px, transparent 1px);
+  background-size:
+    40px 100%,
+    100% 24px;
+  background-position: 35px 0;
 }

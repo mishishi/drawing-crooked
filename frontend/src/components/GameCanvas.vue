@@ -198,12 +198,13 @@ function setImageData(dataUrl) {
   img.src = dataUrl;
 }
 
-// Expose methods to parent
+// Expose methods and state to parent
 defineExpose({
   clearCanvas,
   undo,
   getImageData,
-  setImageData
+  setImageData,
+  undoCount
 });
 
 onMounted(() => {
